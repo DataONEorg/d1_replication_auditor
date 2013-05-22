@@ -40,10 +40,6 @@ public class ManualMemberNodeReplicaAuditor extends AbstractReplicationAuditor {
         this.auditDate = auditDate;
     }
 
-    protected String getLockName() {
-        return MANUAL_AUDIT_LOCK_NAME;
-    }
-
     protected Date calculateAuditDate() {
         return auditDate;
     }
@@ -70,6 +66,10 @@ public class ManualMemberNodeReplicaAuditor extends AbstractReplicationAuditor {
     @Override
     protected Lock getProcessingLock() {
         return null;
+    }
+
+    protected String getLockName() {
+        return MANUAL_AUDIT_LOCK_NAME;
     }
 
     protected int getMaxPages() {

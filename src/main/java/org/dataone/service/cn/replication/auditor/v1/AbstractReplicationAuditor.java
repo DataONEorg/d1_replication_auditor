@@ -122,7 +122,6 @@ public abstract class AbstractReplicationAuditor implements Runnable {
     protected void releaseLock(Lock auditLock) {
         if (auditLock != null) {
             auditLock.unlock();
-            auditLock = null;
         }
     }
 
