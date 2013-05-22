@@ -25,15 +25,22 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
 import org.dataone.service.cn.replication.auditor.v1.ManualCoordinatingNodeReplicaAuditor;
 import org.dataone.service.cn.replication.auditor.v1.ManualMemberNodeReplicaAuditor;
 
 public class ReplicationAuditorTool {
 
+    private static Logger log = Logger.getLogger(ReplicationAuditorTool.class);
+
     public ReplicationAuditorTool() {
     }
 
     public static void main(String[] args) {
+
+        PropertyConfigurator.configure("/etc/dataone/process/log4j.properties");
+
         DateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
         Date dateParameter = null;
         String dateString = null;
@@ -95,6 +102,7 @@ public class ReplicationAuditorTool {
     }
 
     private static void showHelp() {
+        System.out.println(" ");
         System.out.println("DataONE replica audit tool help:");
         System.out.println(" ");
         System.out
@@ -118,5 +126,6 @@ public class ReplicationAuditorTool {
         System.out
                 .println("Either or both 'cn' and/or 'mn' option must be specified.  If neither options ");
         System.out.println("are not specified, auditing will not run (you will see this message).");
+        System.out.println(" ");
     }
 }
