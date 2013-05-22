@@ -97,6 +97,11 @@ public class ReplicationAuditorTool {
     private static void showHelp() {
         System.out.println("DataONE replica audit tool help:");
         System.out.println(" ");
+        System.out
+                .println("  Please note: Replica auditing requires use of the hazelcast 'processing'");
+        System.out
+                .println("    cluster - as such the processing daemon should be running when this");
+        System.out.println("    is used.  It is ok to leave scheduled replica audit running.");
         System.out.println(" ");
         System.out
                 .println("-d     REQUIRED. Replica auditing date.  Used to select replicas to audit.");
