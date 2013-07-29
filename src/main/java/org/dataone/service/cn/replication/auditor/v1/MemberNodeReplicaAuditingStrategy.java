@@ -29,6 +29,9 @@ import org.apache.commons.logging.LogFactory;
 import org.dataone.client.MNode;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.configuration.Settings;
+import org.dataone.service.cn.replication.auditor.log.AuditEvent;
+import org.dataone.service.cn.replication.auditor.log.AuditLogClientFactory;
+import org.dataone.service.cn.replication.auditor.log.AuditLogEntry;
 import org.dataone.service.cn.replication.v1.ReplicationFactory;
 import org.dataone.service.cn.replication.v1.ReplicationService;
 import org.dataone.service.exceptions.BaseException;
@@ -121,21 +124,21 @@ public class MemberNodeReplicaAuditingStrategy {
 
         for (Replica replica : sysMeta.getReplicaList()) {
             // parts of the replica policy may have already been validated recently.
+            // only verify replicas with stale replica verified date (verify).
             boolean verify = replica.getReplicaVerified().before(auditDate);
 
-            // only verify replicas with stale replica verified date (verify).
             if (isCNodeReplica(replica)) {
                 // CN replicas should not be appearing in this auditors data selection but
                 // may appear coincidentally having both a stale CN and MN replica.
                 continue;
             } else if (isAuthoritativeMNReplica(sysMeta, replica)) {
                 if (verify) {
-                    boolean verified = auditAuthoritativeMNodeReplica(sysMeta, replica);
-                    if (!verified) {
+                    boolean valid = auditAuthoritativeMNodeReplica(sysMeta, replica);
+                    if (!valid) {
                         queueToReplication = true;
                     }
                 }
-            } else { // not a CN replica, not the authMN replica - a MN replica!
+            } else { // not a CN replica, not the authMN replica - a MN replica.
                 boolean valid = false;
                 if (verify) {
                     valid = auditMemberNodeReplica(sysMeta, replica);
@@ -163,26 +166,78 @@ public class MemberNodeReplicaAuditingStrategy {
         Identifier pid = sysMeta.getIdentifier();
         Checksum expected = sysMeta.getChecksum();
         Checksum actual = null;
-        boolean valid = true;
 
         try {
             actual = getChecksumFromMN(pid, sysMeta, mn);
         } catch (NotFound e) {
-            valid = false;
+            handleInvalidReplica(pid, replica);
+            String message = "Attempt to retrieve the checksum from source member node resulted in a D1 NotFound exception: "
+                    + e.getMessage() + ".   Replica has been marked invalid.";
+            AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
+                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
+            AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
+            return false;
+        } catch (ServiceFailure e) {
+            log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+            String message = "Attempt to retrieve checksum from MN resulted in multiple ServiceFailure exceptions: "
+                    + e.getMessage()
+                    + ".  Not invalidating replica, will attempt to audit again.  "
+                    + "Only the current occurance of this error will remain in the log.";
+            logAuditingFailure(replica, pid, message);
+            return true;
+        } catch (InvalidRequest e) {
+            log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+            String message = "Attempt to retrieve checksum from MN resulted in multiple InvalidRequest exceptions: "
+                    + e.getMessage()
+                    + ".  Not invalidating replica, will attempt to audit again.  "
+                    + "Only the current occurance of this error will remain in the log.";
+            logAuditingFailure(replica, pid, message);
+            return true;
+        } catch (InvalidToken e) {
+            log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+            String message = "Attempt to retrieve checksum from MN resulted in multiple InvalidToken exceptions: "
+                    + e.getMessage()
+                    + ".  Not invalidating replica, will attempt to audit again.  "
+                    + "Only the current occurance of this error will remain in the log.";
+            logAuditingFailure(replica, pid, message);
+            return true;
         }
 
-        if (actual != null && valid) {
-            valid = ChecksumUtil.areChecksumsEqual(actual, expected);
+        if (actual == null) {
+            String message = "Attempt to retrieve the checksum from source member node resulted "
+                    + "in a null checksum.  Not invalidating replica, will attempt to audit again.  "
+                    + "Only the current occurance of this error will remain in the log.";
+            logAuditingFailure(replica, pid, message);
+            return true;
         }
+
+        boolean valid = ChecksumUtil.areChecksumsEqual(actual, expected);
         if (valid) {
             updateReplicaVerified(pid, replica);
         } else {
             log.error("Checksum mismatch for pid: " + pid.getValue() + " against MN: "
                     + replica.getReplicaMemberNode().getValue() + ".  Expected checksum is: "
                     + expected.getValue() + " actual was: " + actual.getValue());
+            String message = "Checksum for member node does not match value on CN";
+            AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
+                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
+            AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
             handleInvalidReplica(pid, replica);
+            return false;
         }
-        return valid;
+        return true;
+    }
+
+    // could not get the checksum for service failure, invalid request, invalid token reasons.
+    // remove previous log entry event for this pid/node/event type since it going to repeat
+    // until checksum can be generated.
+    private void logAuditingFailure(Replica replica, Identifier pid, String message) {
+        AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
+                new AuditLogEntry(pid.getValue(), replica.getReplicaMemberNode().getValue(),
+                        AuditEvent.REPLICA_AUDIT_FAILED, null, null));
+        AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica.getReplicaMemberNode()
+                .getValue(), AuditEvent.REPLICA_AUDIT_FAILED, message);
+        AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
     }
 
     private boolean auditAuthoritativeMNodeReplica(SystemMetadata sysMeta, Replica replica) {
@@ -199,6 +254,9 @@ public class MemberNodeReplicaAuditingStrategy {
         if (!success) {
             log.error("Cannot update replica verified date  for pid: " + pid + " on CN");
         }
+        AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
+                new AuditLogEntry(pid.getValue(), replica.getReplicaMemberNode().getValue(), null,
+                        null, null));
     }
 
     private Date calculateReplicaVerifiedDate() {
@@ -241,17 +299,26 @@ public class MemberNodeReplicaAuditingStrategy {
     }
 
     private Checksum getChecksumFromMN(Identifier pid, SystemMetadata sysMeta, MNode mn)
-            throws NotFound {
+            throws NotFound, ServiceFailure, InvalidRequest, InvalidToken {
         Checksum checksum = null;
         for (int i = 0; i < 5; i++) {
             try {
                 checksum = mn.getChecksum(pid, sysMeta.getChecksum().getAlgorithm());
                 break;
             } catch (ServiceFailure e) {
+                if (i >= 4) {
+                    throw e;
+                }
                 // try again, no audit (skip)
             } catch (InvalidRequest e) {
+                if (i >= 4) {
+                    throw e;
+                }
                 // try again, no audit (skip)
             } catch (InvalidToken e) {
+                if (i >= 4) {
+                    throw e;
+                }
                 // try again, no audit (skip)
             } catch (NotAuthorized e) {
                 // cannot audit, set to invalid
