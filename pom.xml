@@ -112,7 +112,6 @@
 	</dependencies>
 	
 	<build>
-		<finalName>d1_replication_auditor_tool</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -148,6 +147,8 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                        	<outputFile>${basedir}/target/d1_replication_auditor_tool.jar</outputFile>
+                            <outputDirectory>${basedir}</outputDirectory>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
