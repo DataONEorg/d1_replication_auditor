@@ -32,13 +32,12 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.dataone.configuration.Settings;
 
-// Turn into interface and create solr impl
 public class AuditLogClientSolrImpl implements AuditLogClient {
 
     private static Logger log = Logger.getLogger(AuditLogClientSolrImpl.class.getName());
 
     private static final String AUDIT_LOG_URL = Settings.getConfiguration().getString(
-            "Audit.log.url", "http://localhost:8983/solr/cn-audit/");
+            "replication.audit.log.url", "http://localhost:8983/solr/cn-audit/");
 
     private static HttpSolrServer server = new HttpSolrServer(AUDIT_LOG_URL);
 
