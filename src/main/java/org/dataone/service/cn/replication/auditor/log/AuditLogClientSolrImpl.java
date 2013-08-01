@@ -20,6 +20,7 @@
 package org.dataone.service.cn.replication.auditor.log;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -27,7 +28,8 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.HttpSolrServer;
+import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
+import org.apache.solr.client.solrj.impl.XMLResponseParser;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.dataone.configuration.Settings;
@@ -39,7 +41,16 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
     private static final String AUDIT_LOG_URL = Settings.getConfiguration().getString(
             "replication.audit.log.url", "http://localhost:8983/solr/cn-audit/");
 
-    private static HttpSolrServer server = new HttpSolrServer(AUDIT_LOG_URL);
+    private static CommonsHttpSolrServer server = null;
+
+    static {
+        try {
+            server = new CommonsHttpSolrServer(AUDIT_LOG_URL);
+            server.setParser(new XMLResponseParser());
+        } catch (MalformedURLException e) {
+            log.error("Exception attempting to create common solr server", e);
+        }
+    }
 
     public AuditLogClientSolrImpl() {
     }
@@ -47,7 +58,9 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
     public boolean logAuditEvent(AuditLogEntry logEntry) {
         boolean success = false;
         try {
-            server.addBean(logEntry, 1000);
+            //server.addBean(logEntry, 1000);
+            server.addBean(logEntry);
+            server.commit();
             success = true;
         } catch (SolrServerException e) {
             log.error("exception attempting to ADD audit event: " + logEntry.getEvent()
@@ -114,7 +127,8 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
 
         boolean success = false;
         try {
-            server.deleteByQuery(deleteQuery, 1000);
+            // server.deleteByQuery(deleteQuery, 1000);
+            server.deleteById(deleteQuery);
             success = true;
         } catch (SolrServerException e) {
             log.error("exception attempting to DELETE audit event: " + logEntry.getEvent()
