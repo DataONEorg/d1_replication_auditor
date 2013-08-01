@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
-import org.apache.solr.client.solrj.impl.XMLResponseParser;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.dataone.configuration.Settings;
@@ -46,7 +45,6 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
     static {
         try {
             server = new CommonsHttpSolrServer(AUDIT_LOG_URL);
-            server.setParser(new XMLResponseParser());
         } catch (MalformedURLException e) {
             log.error("Exception attempting to create common solr server", e);
         }
@@ -128,7 +126,8 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
         boolean success = false;
         try {
             // server.deleteByQuery(deleteQuery, 1000);
-            server.deleteById(deleteQuery);
+            server.deleteByQuery(deleteQuery);
+            server.commit();
             success = true;
         } catch (SolrServerException e) {
             log.error("exception attempting to DELETE audit event: " + logEntry.getEvent()
@@ -166,5 +165,20 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
         }
 
         return queryString.toString();
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        AuditLogClient alc = AuditLogClientFactory.getAuditLogClient();
+        System.out.println(alc.queryLog("*:*", null, 0));
+        AuditLogEntry rale = new AuditLogEntry("test-pid-2", "urn:node:earth0",
+                AuditEvent.REPLICA_AUDIT_FAILED, "audit failed!");
+        alc.logAuditEvent(rale);
+        Thread.sleep(2000);
+        System.out.println(alc.queryLog("*:*", null, 0));
+        alc.removeReplicaAuditEvent(new AuditLogEntry("test-pid-1", null,
+                AuditEvent.REPLICA_NOT_FOUND, null, null));
+        Thread.sleep(2000);
+        System.out.println(alc.queryLog(new AuditLogEntry("test-pid-4", null, null, null, null),
+                null, null));
     }
 }

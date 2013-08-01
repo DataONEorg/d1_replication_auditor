@@ -29,19 +29,4 @@ public class AuditLogClientFactory {
     public static AuditLogClient getAuditLogClient() {
         return solrClient;
     }
-
-    public static void main(String[] args) throws InterruptedException {
-        AuditLogClient alc = AuditLogClientFactory.getAuditLogClient();
-        System.out.println(alc.queryLog("*:*", null, 0));
-        AuditLogEntry rale = new AuditLogEntry("test-pid-4", "urn:node:the616",
-                AuditEvent.REPLICA_NOT_FOUND, "This doc is missing!");
-        alc.logAuditEvent(rale);
-        //        Thread.sleep(2000);
-        //        System.out.println(alc.queryLog("*:*", null, 0));
-        //        alc.removeReplicaAuditEvent(new AuditLogEntry("test-pid-1", null,
-        //                AuditEvent.REPLICA_BAD_CHECKSUM, null, null));
-        Thread.sleep(2000);
-        System.out.println(alc.queryLog(new AuditLogEntry("test-pid-4", null, null, null, null),
-                null, null));
-    }
 }
