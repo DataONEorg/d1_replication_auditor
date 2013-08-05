@@ -96,7 +96,7 @@ public class CoordinatingNodeReplicaAuditingStrategy {
         }
         if (sysMeta == null) {
             log.error("Cannot get system metadata from CN for pid: " + pid
-                    + ".  Could not audit CN replica for pid: " + pid + "");
+                    + ".  Could not audit CN replica for pid: " + pid.getValue() + "");
 
             AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
                     new AuditLogEntry(pid.getValue(), cnRouterId, AuditEvent.REPLICA_AUDIT_FAILED,
@@ -184,8 +184,8 @@ public class CoordinatingNodeReplicaAuditingStrategy {
             updateVerifiedReplica(sysMeta.getIdentifier(), replica);
         } else {
             updateInvalidReplica(sysMeta.getIdentifier(), replica);
-            log.error("CN replica is not valid for pid: " + sysMeta.getIdentifier() + " on CN: "
-                    + invalidCN.getValue());
+            log.error("CN replica is not valid for pid: " + sysMeta.getIdentifier().getValue()
+                    + " on CN: " + invalidCN.getValue());
             //TODO: handle invalid CN relica
         }
     }
@@ -205,7 +205,7 @@ public class CoordinatingNodeReplicaAuditingStrategy {
         replica.setReplicaVerified(calculateReplicaVerifiedDate());
         boolean success = replicationService.updateReplicationMetadata(pid, replica);
         if (!success) {
-            log.error("Cannot update replica verified date  for pid: " + pid + " on CN");
+            log.error("Cannot update replica verified date  for pid: " + pid.getValue() + " on CN");
         }
         AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
                 new AuditLogEntry(pid.getValue(), cnRouterId, null, null, null));
@@ -215,7 +215,7 @@ public class CoordinatingNodeReplicaAuditingStrategy {
         replica.setReplicaVerified(calculateReplicaVerifiedDate());
         boolean success = replicationService.updateReplicationMetadata(pid, replica);
         if (!success) {
-            log.error("Cannot update replica verified date  for pid: " + pid + " on CN");
+            log.error("Cannot update replica verified date  for pid: " + pid.getValue() + " on CN");
         }
     }
 
