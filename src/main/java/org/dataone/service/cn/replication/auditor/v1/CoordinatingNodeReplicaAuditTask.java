@@ -51,7 +51,7 @@ public class CoordinatingNodeReplicaAuditTask implements Serializable, Callable<
     @Override
     public String call() throws Exception {
         auditor.auditPids(pidsToAudit, auditDate);
-        return "Replica audit task for pids: " + pidsToAudit + " completed.";
+        return "Replica audit task for pids: " + pidsToAudit.size() + " completed.";
     }
 
     public List<Identifier> getPidsToAudit() {
