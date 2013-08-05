@@ -25,6 +25,11 @@ import org.apache.solr.client.solrj.beans.Field;
 
 public class AuditLogEntry {
 
+    private static final String seperatorChar = "|";
+
+    @Field
+    private String id;
+
     @Field
     private String pid;
 
@@ -50,6 +55,7 @@ public class AuditLogEntry {
         this.event = event;
         this.dateLogged = dateLogged;
         this.logText = logText;
+        this.id = generateId();
     }
 
     public AuditLogEntry(String pid, String nodeId, AuditEvent event, String logText) {
@@ -94,5 +100,30 @@ public class AuditLogEntry {
 
     public void setLogText(String logText) {
         this.logText = logText;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getId() {
+        return this.id;
+    }
+
+    private String generateId() {
+        StringBuffer id = new StringBuffer();
+        if (this.pid != null) {
+            id.append(this.pid + seperatorChar);
+        }
+        if (this.nodeId != null) {
+            id.append(this.nodeId + seperatorChar);
+        }
+        if (this.event != null) {
+            id.append(this.event + seperatorChar);
+        }
+        if (this.dateLogged != null) {
+            id.append(this.dateLogged);
+        }
+        return id.toString();
     }
 }

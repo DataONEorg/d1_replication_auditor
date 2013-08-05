@@ -170,15 +170,14 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
     public static void main(String[] args) throws InterruptedException {
         AuditLogClient alc = AuditLogClientFactory.getAuditLogClient();
         System.out.println(alc.queryLog("*:*", null, 0));
-        AuditLogEntry rale = new AuditLogEntry("test-pid-2", "urn:node:earth0",
+        AuditLogEntry rale = new AuditLogEntry("test-pid-1", "urn:node:the616",
                 AuditEvent.REPLICA_AUDIT_FAILED, "audit failed!");
         alc.logAuditEvent(rale);
         Thread.sleep(2000);
         System.out.println(alc.queryLog("*:*", null, 0));
-        alc.removeReplicaAuditEvent(new AuditLogEntry("test-pid-1", null,
-                AuditEvent.REPLICA_NOT_FOUND, null, null));
+        alc.removeReplicaAuditEvent(new AuditLogEntry("test-pid-1", null, null, null, null));
         Thread.sleep(2000);
-        System.out.println(alc.queryLog(new AuditLogEntry("test-pid-4", null, null, null, null),
+        System.out.println(alc.queryLog(new AuditLogEntry("test-pid-1", null, null, null, null),
                 null, null));
     }
 }
