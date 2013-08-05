@@ -43,7 +43,7 @@ public class CoordinatingNodeReplicaAuditTask implements Serializable, Callable<
     private Date auditDate;
 
     public CoordinatingNodeReplicaAuditTask(List<Identifier> pids, Date auditDate) {
-        this.pidsToAudit = pids;
+        this.pidsToAudit.addAll(pids);
         this.auditDate = auditDate;
         auditor = new CoordinatingNodeReplicaAuditingStrategy();
     }
