@@ -19,6 +19,8 @@
  */
 package org.dataone.service.cn.replication.auditor.v1;
 
+import java.util.Collection;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dataone.cn.ComponentActivationUtility;
@@ -76,7 +78,8 @@ public class QueuedReplicationAuditor implements Runnable {
     }
 
     private void runQueuedTasks() {
-        for (NodeReference nodeRef : replicationTaskQueue.getMemberNodesInQueue()) {
+        Collection<NodeReference> nodes = replicationTaskQueue.getMemberNodesInQueue();
+        for (NodeReference nodeRef : nodes) {
             int sizeOfQueue = replicationTaskQueue.getCountOfTasksForNode(nodeRef.getValue());
             log.debug("Queued tasks for member node: " + nodeRef.getValue() + " has: "
                     + sizeOfQueue + " tasks in queue.");
