@@ -274,6 +274,10 @@ public class MemberNodeReplicaAuditingStrategy {
 
     private boolean shouldSendToReplication(boolean queueToReplication, SystemMetadata sysMeta,
             int validReplicaCount) {
+        if (sysMeta.getReplicationPolicy() == null
+                || sysMeta.getReplicationPolicy().getNumberReplicas() == null) {
+            return false;
+        }
         return queueToReplication
                 || validReplicaCount != sysMeta.getReplicationPolicy().getNumberReplicas()
                         .intValue();
