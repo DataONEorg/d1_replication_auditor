@@ -38,7 +38,7 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
     private static Logger log = Logger.getLogger(AuditLogClientSolrImpl.class.getName());
 
     private static final String AUDIT_LOG_URL = Settings.getConfiguration().getString(
-            "replication.audit.log.url", "http://localhost:8983/solr/cn-audit/");
+            "replication.audit.log.url", "http://localhost:8983/solr4/cn-audit/");
 
     private static CommonsHttpSolrServer server = null;
 
@@ -175,9 +175,9 @@ public class AuditLogClientSolrImpl implements AuditLogClient {
         alc.logAuditEvent(rale);
         Thread.sleep(2000);
         System.out.println(alc.queryLog("*:*", null, 0));
-        alc.removeReplicaAuditEvent(new AuditLogEntry("test-pid-1", null, null, null, null));
-        Thread.sleep(2000);
-        System.out.println(alc.queryLog(new AuditLogEntry("test-pid-1", null, null, null, null),
-                null, null));
+        //        alc.removeReplicaAuditEvent(new AuditLogEntry("test-pid-1", null, null, null, null));
+        //        Thread.sleep(2000);
+        //System.out.println(alc.queryLog(new AuditLogEntry("test-pid-1", null, null, null, null),
+        //        null, null));
     }
 }
