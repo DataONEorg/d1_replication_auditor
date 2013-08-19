@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dataone.service.cn.replication.auditor.v1;
+package org.dataone.service.cn.replication.auditor.v1.controller;
 
 import java.util.Date;
 import java.util.List;
@@ -26,6 +26,7 @@ import java.util.concurrent.Callable;
 import org.dataone.cn.ComponentActivationUtility;
 import org.dataone.cn.dao.exceptions.DataAccessException;
 import org.dataone.configuration.Settings;
+import org.dataone.service.cn.replication.auditor.v1.task.CoordinatingNodeReplicaAuditTask;
 import org.dataone.service.types.v1.Identifier;
 
 /**

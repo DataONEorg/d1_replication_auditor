@@ -17,59 +17,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dataone.service.cn.replication.auditor.v1;
+package org.dataone.service.cn.replication.auditor.v1.controller;
 
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.locks.Lock;
 
+import org.dataone.cn.ComponentActivationUtility;
 import org.dataone.cn.dao.exceptions.DataAccessException;
+import org.dataone.configuration.Settings;
+import org.dataone.service.cn.replication.auditor.v1.task.MemberNodeReplicaAuditTask;
 import org.dataone.service.types.v1.Identifier;
 
-public class ManualMemberNodeReplicaAuditor extends AbstractReplicationAuditor {
+/**
+ * Concrete implementation of AbstractReplicationAuditor to provide specific
+ * behavior for auditing member node replicas using callable auditing tasks.
+ * This class provides specific implementation for methods to select pids for
+ * auditing, creating member node auditing tasks, controlling the audit period,
+ * and configuration of the executor service.
+ * 
+ * @author sroseboo
+ *
+ */
+public class MemberNodeReplicationAuditor extends AbstractReplicationAuditor {
 
-    private static final int pageSize = 200;
-    private static final int pidsPerTaskSize = 20;
+    private static final int pageSize = 100;
+    private static final int pidsPerTaskSize = 10;
     private static final int taskPoolSize = 10;
-    private static final int maxPages = 100000;
-    private static final String MANUAL_AUDIT_LOCK_NAME = "manualMemberNodeReplicationAuditLock";
-    private Date auditDate = null;
+    private static final int maxPages = 1000;
 
-    public ManualMemberNodeReplicaAuditor(Date auditDate) {
-        this.auditDate = auditDate;
+    private static final int auditPeriodDays = Settings.getConfiguration().getInt(
+            "Replication.audit.mn.period.days", 90);
+
+    private static final long auditPeriod = 1000 * 60 * 60 * 24 * auditPeriodDays;
+
+    private static final String MN_AUDIT_LOCK_NAME = "memberNodeReplicationAuditLock";
+
+    @Override
+    protected String getLockName() {
+        return MN_AUDIT_LOCK_NAME;
     }
 
+    @Override
     protected Date calculateAuditDate() {
-        return auditDate;
+        return new Date(System.currentTimeMillis() - auditPeriod);
     }
 
+    @Override
     protected List<Identifier> getPidsToAudit(Date auditDate, int pageNumber, int pageSize)
             throws DataAccessException {
         return this.replicationDao.getCompletedMemberNodeReplicasByDate(auditDate, pageNumber,
                 pageSize);
     }
 
+    @Override
     protected Callable<String> newAuditTask(List<Identifier> pids, Date auditDate) {
         return new MemberNodeReplicaAuditTask(pids, auditDate);
-    }
-
-    @Override
-    protected boolean tryLock(Lock lock) {
-        return true;
-    }
-
-    @Override
-    protected void releaseLock(Lock lock) {
-    }
-
-    @Override
-    protected Lock getProcessingLock() {
-        return null;
-    }
-
-    protected String getLockName() {
-        return MANUAL_AUDIT_LOCK_NAME;
     }
 
     protected int getMaxPages() {
@@ -88,8 +91,8 @@ public class ManualMemberNodeReplicaAuditor extends AbstractReplicationAuditor {
         return pidsPerTaskSize;
     }
 
+    @Override
     protected boolean shouldRunAudit() {
-        return true;
+        return ComponentActivationUtility.replicationMNAuditorIsActive();
     }
-
 }
