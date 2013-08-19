@@ -11,16 +11,9 @@
   		<d1_replication_version>1.2.0-SNAPSHOT</d1_replication_version>
   		<hazelcast.version>2.4.1</hazelcast.version>
   		<spring.version>3.1.1.RELEASE</spring.version>
-  		<solr.version>3.4.0</solr.version>
 	</properties>
   
 	<dependencies>
-	
-		<dependency>
-			<artifactId>solr-solrj</artifactId>
-            <groupId>org.apache.solr</groupId>
-            <version>${solr.version}</version>
-        </dependency>
         
 		<dependency>
 		    <groupId>org.dataone</groupId>
@@ -32,9 +25,6 @@
 		    <artifactId>d1_replication</artifactId>
 		    <version>${d1_replication_version}</version>
 		</dependency>
-		
-		
-		
 		<dependency>
 		    <groupId>com.hazelcast</groupId>
 		    <artifactId>hazelcast</artifactId>
