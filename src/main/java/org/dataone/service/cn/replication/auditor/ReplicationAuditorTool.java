@@ -27,8 +27,8 @@ import java.util.Date;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
-import org.dataone.service.cn.replication.auditor.v1.ManualCoordinatingNodeReplicaAuditor;
-import org.dataone.service.cn.replication.auditor.v1.ManualMemberNodeReplicaAuditor;
+import org.dataone.service.cn.replication.auditor.v1.controller.ManualCoordinatingNodeReplicaAuditor;
+import org.dataone.service.cn.replication.auditor.v1.controller.ManualMemberNodeReplicaAuditor;
 
 public class ReplicationAuditorTool {
 

@@ -25,6 +25,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.dataone.service.cn.replication.auditor.v1.controller.CoordinatingNodeReplicationAuditor;
+import org.dataone.service.cn.replication.auditor.v1.controller.InvalidMemberNodeReplicationAuditor;
+import org.dataone.service.cn.replication.auditor.v1.controller.MemberNodeReplicationAuditor;
 
 /**
  * Controller responsible for scheduling(starting) and stopping replication auditors.
@@ -40,6 +43,7 @@ public class ScheduledReplicationAuditController {
     private static ScheduledExecutorService staleRequestedReplicaAuditScheduler;
     private static ScheduledExecutorService staleQueuedReplicaAuditScheduler;
     private static ScheduledExecutorService mnReplicaAuditScheduler;
+    private static ScheduledExecutorService invalidMnReplicaAuditScheduler;
     private static ScheduledExecutorService cnReplicaAuditScheduler;
 
     public ScheduledReplicationAuditController() {
@@ -65,6 +69,9 @@ public class ScheduledReplicationAuditController {
         }
         if (mnReplicaAuditScheduler != null) {
             mnReplicaAuditScheduler.shutdown();
+        }
+        if (invalidMnReplicaAuditScheduler != null) {
+            invalidMnReplicaAuditScheduler.shutdown();
         }
         if (cnReplicaAuditScheduler != null) {
             cnReplicaAuditScheduler.shutdown();
@@ -95,6 +102,11 @@ public class ScheduledReplicationAuditController {
             mnReplicaAuditScheduler = Executors.newSingleThreadScheduledExecutor();
             mnReplicaAuditScheduler.scheduleAtFixedRate(new MemberNodeReplicationAuditor(), 0L, 1L,
                     TimeUnit.HOURS);
+        }
+        if (invalidMnReplicaAuditScheduler == null || invalidMnReplicaAuditScheduler.isShutdown()) {
+            invalidMnReplicaAuditScheduler = Executors.newSingleThreadScheduledExecutor();
+            invalidMnReplicaAuditScheduler.scheduleAtFixedRate(
+                    new InvalidMemberNodeReplicationAuditor(), 0L, 1L, TimeUnit.HOURS);
         }
     }
 

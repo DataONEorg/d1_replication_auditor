@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dataone.service.cn.replication.auditor.v1;
+package org.dataone.service.cn.replication.auditor.v1.controller;
 
 import java.util.Date;
 import java.util.List;
@@ -25,23 +25,20 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.locks.Lock;
 
 import org.dataone.cn.dao.exceptions.DataAccessException;
+import org.dataone.service.cn.replication.auditor.v1.task.MemberNodeReplicaAuditTask;
 import org.dataone.service.types.v1.Identifier;
 
-public class ManualCoordinatingNodeReplicaAuditor extends AbstractReplicationAuditor {
+public class ManualMemberNodeReplicaAuditor extends AbstractReplicationAuditor {
 
     private static final int pageSize = 200;
     private static final int pidsPerTaskSize = 20;
     private static final int taskPoolSize = 10;
     private static final int maxPages = 100000;
-    private static final String MANUAL_AUDIT_LOCK_NAME = "manualCoordinatingNodeReplicationAuditLock";
+    private static final String MANUAL_AUDIT_LOCK_NAME = "manualMemberNodeReplicationAuditLock";
     private Date auditDate = null;
 
-    public ManualCoordinatingNodeReplicaAuditor(Date auditDate) {
+    public ManualMemberNodeReplicaAuditor(Date auditDate) {
         this.auditDate = auditDate;
-    }
-
-    protected String getLockName() {
-        return MANUAL_AUDIT_LOCK_NAME;
     }
 
     protected Date calculateAuditDate() {
@@ -50,12 +47,12 @@ public class ManualCoordinatingNodeReplicaAuditor extends AbstractReplicationAud
 
     protected List<Identifier> getPidsToAudit(Date auditDate, int pageNumber, int pageSize)
             throws DataAccessException {
-        return this.replicationDao.getCompletedCoordinatingNodeReplicasByDate(auditDate,
-                pageNumber, pageSize);
+        return this.replicationDao.getCompletedMemberNodeReplicasByDate(auditDate, pageNumber,
+                pageSize);
     }
 
     protected Callable<String> newAuditTask(List<Identifier> pids, Date auditDate) {
-        return new CoordinatingNodeReplicaAuditTask(pids, auditDate);
+        return new MemberNodeReplicaAuditTask(pids, auditDate);
     }
 
     @Override
@@ -70,6 +67,10 @@ public class ManualCoordinatingNodeReplicaAuditor extends AbstractReplicationAud
     @Override
     protected Lock getProcessingLock() {
         return null;
+    }
+
+    protected String getLockName() {
+        return MANUAL_AUDIT_LOCK_NAME;
     }
 
     protected int getMaxPages() {

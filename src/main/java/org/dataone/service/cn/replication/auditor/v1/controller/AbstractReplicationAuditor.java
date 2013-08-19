@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dataone.service.cn.replication.auditor.v1;
+package org.dataone.service.cn.replication.auditor.v1.controller;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -169,9 +169,9 @@ public abstract class AbstractReplicationAuditor implements Runnable {
             future = executorService.submit(auditTask);
         } catch (RejectedExecutionException rej) {
             log.error("Unable to submit tasks to executor service. ", rej);
-            log.error("Sleeping for 5 seconds, trying again");
+            log.error("Sleeping for 10 seconds, trying again");
             try {
-                Thread.sleep(5000);
+                Thread.sleep(10000);
             } catch (InterruptedException e) {
                 log.error("sleep interrupted.", e);
             }

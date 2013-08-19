@@ -17,12 +17,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dataone.service.cn.replication.auditor.v1;
+package org.dataone.service.cn.replication.auditor.v1.strategy;
 
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,31 +30,28 @@ import org.dataone.configuration.Settings;
 import org.dataone.service.cn.replication.auditor.log.AuditEvent;
 import org.dataone.service.cn.replication.auditor.log.AuditLogClientFactory;
 import org.dataone.service.cn.replication.auditor.log.AuditLogEntry;
-import org.dataone.service.cn.replication.v1.ReplicationFactory;
-import org.dataone.service.cn.replication.v1.ReplicationService;
-import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.InvalidRequest;
 import org.dataone.service.exceptions.InvalidToken;
-import org.dataone.service.exceptions.NotAuthorized;
 import org.dataone.service.exceptions.NotFound;
-import org.dataone.service.exceptions.NotImplemented;
 import org.dataone.service.exceptions.ServiceFailure;
 import org.dataone.service.types.v1.Checksum;
 import org.dataone.service.types.v1.Identifier;
-import org.dataone.service.types.v1.Node;
-import org.dataone.service.types.v1.NodeReference;
-import org.dataone.service.types.v1.NodeType;
 import org.dataone.service.types.v1.Replica;
-import org.dataone.service.types.v1.ReplicationStatus;
 import org.dataone.service.types.v1.SystemMetadata;
 import org.dataone.service.types.v1.util.ChecksumUtil;
 
-import com.hazelcast.core.IMap;
 import com.hazelcast.core.IQueue;
 
 /**
  * This type of audit verifies both that the replication policy is fufilled and
  * that each Member Node replica is still valid (by comparing checksum values).
+ * 
+ * The authoritative Member Node's 'replica' is not marked 'invalid' if it is 
+ * found to be missing or have a different checksum value (than what is recorded
+ * in the system metadata record).  All behavior regarding changing the replica
+ * status only applies to non-authoritative member node replica objects.  However,
+ * the replica audit log message will still be generated - indicating an issue with 
+ * the authoritative member node's replica object.
  * 
  * Replicas found with invalid checksums have system metadata replica status
  * updated to INVALID. Pids with unfufilled replica policies are sent to
@@ -68,23 +63,18 @@ import com.hazelcast.core.IQueue;
  * @author sroseboo
  * 
  */
-public class MemberNodeReplicaAuditingStrategy {
+public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
 
     public static Log log = LogFactory.getLog(MemberNodeReplicaAuditingStrategy.class);
-    private String replicationEventQueueName = Settings.getConfiguration().getString(
+    private ReplicaAuditingDelegate auditDelegate = new ReplicaAuditingDelegate();
+
+    private static final String replicationEventQueueName = Settings.getConfiguration().getString(
             "dataone.hazelcast.replicationQueuedEvents");
 
-    private ReplicationService replicationService;
-    private IMap<NodeReference, Node> hzNodes;
-    private IQueue<Identifier> replicationEvents;
-
-    private Map<NodeReference, MNode> mnMap = new HashMap<NodeReference, MNode>();
+    private IQueue<Identifier> replicationEvents = HazelcastClientFactory.getProcessingClient()
+            .getQueue(replicationEventQueueName);
 
     public MemberNodeReplicaAuditingStrategy() {
-        replicationService = ReplicationFactory.getReplicationService();
-        replicationEvents = HazelcastClientFactory.getProcessingClient().getQueue(
-                replicationEventQueueName);
-        hzNodes = HazelcastClientFactory.getProcessingClient().getMap("hzNodes");
     }
 
     public void auditPids(List<Identifier> pids, Date auditDate) {
@@ -95,27 +85,19 @@ public class MemberNodeReplicaAuditingStrategy {
     }
 
     /**
-     * 
      * Audit the replication policy of a pid:
+     * 1.) Verify document exists on MN.
      * 2.) Verify each MN replica (checksum).
      * 3.) Verify the replication policy of the pid is fufilled.
-     * 
      * 
      * @param pid
      * @param auditDate
      * @return
      */
-    public void auditPid(Identifier pid, Date auditDate) {
-        log.debug("audit pid called for pid: " + pid.getValue());
-        SystemMetadata sysMeta = null;
-        try {
-            sysMeta = replicationService.getSystemMetadata(pid);
-        } catch (NotFound e) {
-            log.error("Could not find system meta for pid: " + pid.getValue());
-        }
+    private void auditPid(Identifier pid, Date auditDate) {
+        log.debug("auditPid for Member Node replica called for pid: " + pid.getValue());
+        SystemMetadata sysMeta = auditDelegate.getSystemMetadata(pid);
         if (sysMeta == null) {
-            log.error("Cannot get system metadata from CN for pid: " + pid
-                    + ".  Could not audit replicas for pid: " + pid + "");
             return;
         }
 
@@ -127,11 +109,11 @@ public class MemberNodeReplicaAuditingStrategy {
             // only verify replicas with stale replica verified date (verify).
             boolean verify = replica.getReplicaVerified().before(auditDate);
 
-            if (isCNodeReplica(replica)) {
+            if (auditDelegate.isCNodeReplica(replica)) {
                 // CN replicas should not be appearing in this auditors data selection but
                 // may appear coincidentally having both a stale CN and MN replica.
                 continue;
-            } else if (isAuthoritativeMNReplica(sysMeta, replica)) {
+            } else if (auditDelegate.isAuthoritativeMNReplica(sysMeta, replica)) {
                 if (verify) {
                     boolean valid = auditAuthoritativeMNodeReplica(sysMeta, replica);
                     if (!valid) {
@@ -141,7 +123,7 @@ public class MemberNodeReplicaAuditingStrategy {
             } else { // not a CN replica, not the authMN replica - a MN replica.
                 boolean valid = false;
                 if (verify) {
-                    valid = auditMemberNodeReplica(sysMeta, replica);
+                    valid = auditMemberNodeReplica(sysMeta, replica, false);
                 }
                 if (valid || !verify) {
                     validReplicaCount++;
@@ -156,9 +138,10 @@ public class MemberNodeReplicaAuditingStrategy {
         return;
     }
 
-    private boolean auditMemberNodeReplica(SystemMetadata sysMeta, Replica replica) {
+    private boolean auditMemberNodeReplica(SystemMetadata sysMeta, Replica replica,
+            boolean authoritativeMN) {
 
-        MNode mn = getMNode(replica.getReplicaMemberNode());
+        MNode mn = auditDelegate.getMNode(replica.getReplicaMemberNode());
         if (mn == null) {
             return true;
         }
@@ -168,9 +151,9 @@ public class MemberNodeReplicaAuditingStrategy {
         Checksum actual = null;
 
         try {
-            actual = getChecksumFromMN(pid, sysMeta, mn);
+            actual = auditDelegate.getChecksumFromMN(pid, sysMeta, mn);
         } catch (NotFound e) {
-            handleInvalidReplica(pid, replica);
+            handleInvalidReplica(pid, replica, authoritativeMN);
             String message = "Attempt to retrieve the checksum from source member node resulted in a D1 NotFound exception: "
                     + e.getMessage() + ".   Replica has been marked invalid.";
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
@@ -215,14 +198,14 @@ public class MemberNodeReplicaAuditingStrategy {
         if (valid) {
             updateReplicaVerified(pid, replica);
         } else {
-            log.error("Checksum mismatch for pid: " + pid.getValue() + " against MN: "
+            String message = "Checksum mismatch for pid: " + pid.getValue() + " against MN: "
                     + replica.getReplicaMemberNode().getValue() + ".  Expected checksum is: "
-                    + expected.getValue() + " actual was: " + actual.getValue());
-            String message = "Checksum for member node does not match value on CN";
+                    + expected.getValue() + " actual was: " + actual.getValue();
+            log.error(message);
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
-            handleInvalidReplica(pid, replica);
+            handleInvalidReplica(pid, replica, authoritativeMN);
             return false;
         }
         return true;
@@ -241,35 +224,11 @@ public class MemberNodeReplicaAuditingStrategy {
     }
 
     private boolean auditAuthoritativeMNodeReplica(SystemMetadata sysMeta, Replica replica) {
-        boolean verified = auditMemberNodeReplica(sysMeta, replica);
+        boolean verified = auditMemberNodeReplica(sysMeta, replica, true);
         if (!verified) {
             //any further special processing for auth MN?
         }
         return verified;
-    }
-
-    private void updateReplicaVerified(Identifier pid, Replica replica) {
-        replica.setReplicaVerified(calculateReplicaVerifiedDate());
-        boolean success = replicationService.updateReplicationMetadata(pid, replica);
-        if (!success) {
-            log.error("Cannot update replica verified date  for pid: " + pid + " on CN");
-        }
-        AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
-                new AuditLogEntry(pid.getValue(), replica.getReplicaMemberNode().getValue(), null,
-                        null, null));
-    }
-
-    private Date calculateReplicaVerifiedDate() {
-        return new Date(System.currentTimeMillis());
-    }
-
-    private boolean isCNodeReplica(Replica replica) {
-        return NodeType.CN.equals(hzNodes.get(replica.getReplicaMemberNode()).getType());
-    }
-
-    private boolean isAuthoritativeMNReplica(SystemMetadata sysMeta, Replica replica) {
-        return replica.getReplicaMemberNode().getValue()
-                .equals(sysMeta.getAuthoritativeMemberNode().getValue());
     }
 
     private boolean shouldSendToReplication(boolean queueToReplication, SystemMetadata sysMeta,
@@ -283,12 +242,20 @@ public class MemberNodeReplicaAuditingStrategy {
                         .intValue();
     }
 
-    private void handleInvalidReplica(Identifier pid, Replica replica) {
-        replica.setReplicationStatus(ReplicationStatus.INVALIDATED);
-        boolean success = replicationService.updateReplicationMetadata(pid, replica);
-        if (!success) {
-            log.error("Cannot update replica status to INVALID for pid: " + pid + " on MN: "
-                    + replica.getReplicaMemberNode().getValue());
+    private void updateReplicaVerified(Identifier pid, Replica replica) {
+        auditDelegate.updateVerifiedReplica(pid, replica);
+    }
+
+    /**
+     * Only set replica status invalid if not the authoritative MN copy.
+     * 
+     * @param pid
+     * @param replica
+     * @param authoritativeMN
+     */
+    private void handleInvalidReplica(Identifier pid, Replica replica, boolean authoritativeMN) {
+        if (authoritativeMN == false) {
+            auditDelegate.updateInvalidReplica(pid, replica);
         }
     }
 
@@ -300,58 +267,5 @@ public class MemberNodeReplicaAuditingStrategy {
             log.error("Pid: " + pid + " not accepted by replicationManager createAndQueueTasks: ",
                     e);
         }
-    }
-
-    private Checksum getChecksumFromMN(Identifier pid, SystemMetadata sysMeta, MNode mn)
-            throws NotFound, ServiceFailure, InvalidRequest, InvalidToken {
-        Checksum checksum = null;
-        for (int i = 0; i < 5; i++) {
-            try {
-                checksum = mn.getChecksum(pid, sysMeta.getChecksum().getAlgorithm());
-                break;
-            } catch (ServiceFailure e) {
-                if (i >= 4) {
-                    throw e;
-                }
-                // try again, no audit (skip)
-            } catch (InvalidRequest e) {
-                if (i >= 4) {
-                    throw e;
-                }
-                // try again, no audit (skip)
-            } catch (InvalidToken e) {
-                if (i >= 4) {
-                    throw e;
-                }
-                // try again, no audit (skip)
-            } catch (NotAuthorized e) {
-                // cannot audit, set to invalid
-                checksum = new Checksum();
-                break;
-            } catch (NotImplemented e) {
-                // cannot audit, set to invalid
-                checksum = new Checksum();
-                break;
-            }
-        }
-        return checksum;
-    }
-
-    private MNode getMNode(NodeReference nodeRef) {
-        if (!mnMap.containsKey(nodeRef)) {
-            MNode mn = replicationService.getMemberNode(nodeRef);
-            if (mn != null) {
-                try {
-                    mn.ping();
-                    mnMap.put(nodeRef, mn);
-                } catch (BaseException e) {
-                    log.error("Unable to ping MN: " + nodeRef.getValue(), e);
-                }
-            } else {
-                log.error("Cannot get MN: " + nodeRef.getValue()
-                        + " unable to verify replica information.");
-            }
-        }
-        return mnMap.get(nodeRef);
     }
 }

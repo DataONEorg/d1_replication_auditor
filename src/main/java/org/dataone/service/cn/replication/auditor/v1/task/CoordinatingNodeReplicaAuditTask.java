@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dataone.service.cn.replication.auditor.v1;
+package org.dataone.service.cn.replication.auditor.v1.task;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -25,30 +25,29 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import org.apache.log4j.Logger;
+import org.dataone.service.cn.replication.auditor.v1.strategy.CoordinatingNodeReplicaAuditingStrategy;
+import org.dataone.service.cn.replication.auditor.v1.strategy.ReplicaAuditStrategy;
 import org.dataone.service.types.v1.Identifier;
 
 /**
- * Callable java task, delegates to MemberNodeReplicaAuditingStrategy to handle
+ * Callable java task, delegates to CoordinatingNodeReplicaAuditingStrategy to handle
  * audit work for each pid in pidsToAudit.
  * 
  * @author sroseboo
  *
  */
-public class MemberNodeReplicaAuditTask implements Serializable, Callable<String> {
+public class CoordinatingNodeReplicaAuditTask implements Serializable, Callable<String> {
 
     private static final long serialVersionUID = 8549092026722882706L;
-    private static Logger log = Logger.getLogger(MemberNodeReplicaAuditTask.class.getName());
 
     private List<Identifier> pidsToAudit = new ArrayList<Identifier>();
-    private MemberNodeReplicaAuditingStrategy auditor;
+    private ReplicaAuditStrategy auditor;
     private Date auditDate;
 
-    public MemberNodeReplicaAuditTask(List<Identifier> pids, Date auditDate) {
+    public CoordinatingNodeReplicaAuditTask(List<Identifier> pids, Date auditDate) {
         this.pidsToAudit.addAll(pids);
-        log.debug("audit task has " + pids.size() + " pids to audit.");
         this.auditDate = auditDate;
-        auditor = new MemberNodeReplicaAuditingStrategy();
+        auditor = new CoordinatingNodeReplicaAuditingStrategy();
     }
 
     @Override
