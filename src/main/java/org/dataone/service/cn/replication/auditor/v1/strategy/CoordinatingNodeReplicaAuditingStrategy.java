@@ -28,11 +28,10 @@ import java.util.Map;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dataone.client.CNode;
+import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
-import org.dataone.service.cn.replication.v1.ReplicationFactory;
-import org.dataone.service.cn.replication.v1.ReplicationService;
 import org.dataone.service.exceptions.InvalidToken;
 import org.dataone.service.exceptions.NotAuthorized;
 import org.dataone.service.exceptions.NotFound;
@@ -68,10 +67,10 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
     private ReplicaAuditingDelegate auditDelegate = new ReplicaAuditingDelegate();
     private Map<NodeReference, CNode> cnMap = new HashMap<NodeReference, CNode>();
 
-    private ReplicationService replicationService = ReplicationFactory.getReplicationService();
     private IMap<NodeReference, Node> hzNodes;
 
     public CoordinatingNodeReplicaAuditingStrategy() {
+        hzNodes = HazelcastClientFactory.getProcessingClient().getMap("hzNodes");
     }
 
     public void auditPids(List<Identifier> pids, Date auditDate) {
