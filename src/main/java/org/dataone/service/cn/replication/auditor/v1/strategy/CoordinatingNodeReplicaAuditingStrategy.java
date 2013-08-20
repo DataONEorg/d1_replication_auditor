@@ -74,13 +74,14 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
     }
 
     public void auditPids(List<Identifier> pids, Date auditDate) {
+        log.debug("audit pids called with " + pids.size() + ".");
         for (Identifier pid : pids) {
             this.auditPid(pid, auditDate);
         }
     }
 
     private void auditPid(Identifier pid, Date auditDate) {
-
+        log.debug("auditPid for Coordinating Node replica called for pid: " + pid.getValue());
         // remove log entry if audit replica failed exists
         AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
                 new AuditLogEntry(pid.getValue(), auditDelegate.getCnRouterId(),
@@ -121,6 +122,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                         log.error(message, e);
                         logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
                                 .getIdentifier().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
+                        continue;
                     } catch (NotAuthorized e) {
                         thisValid = false;
                         String message = "Attempt to retrieve pid: "
@@ -132,6 +134,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                         logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
                                 .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
                                 message);
+                        continue;
                     } catch (NotImplemented e) {
                         thisValid = false;
                         String message = "Attempt to retrieve pid: "
@@ -143,6 +146,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                         logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
                                 .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
                                 message);
+                        continue;
                     } catch (InvalidToken e) {
                         thisValid = false;
                         String message = "Attempt to retrieve pid: "
@@ -153,6 +157,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                         logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
                                 .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
                                 message);
+                        continue;
                     } catch (ServiceFailure e) {
                         thisValid = false;
                         String message = "Attempt to retrieve pid: "
@@ -164,6 +169,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                         logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
                                 .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
                                 message);
+                        continue;
                     }
                     if (actual != null && thisValid) {
                         thisValid = ChecksumUtil.areChecksumsEqual(expected, actual);
@@ -177,8 +183,12 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                         String message = "Checksum mismatch for pid: "
                                 + sysMeta.getIdentifier().getValue() + " against CN: "
                                 + nodeRef.getValue() + ".  Expected checksum is: "
-                                + expected.getValue() + " actual was: " + actual.getValue()
-                                + ".  Replica has NOT been marked invalid.";
+                                + expected.getValue() + ". ";
+
+                        if (actual != null) {
+                            message = message + " actual was: " + actual.getValue() + ". ";
+                        }
+                        message = message + "Replica has NOT been marked invalid.";
                         log.error(message);
                         logReplicaAuditFailure(sysMeta.getIdentifier().getValue(),
                                 nodeRef.getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
