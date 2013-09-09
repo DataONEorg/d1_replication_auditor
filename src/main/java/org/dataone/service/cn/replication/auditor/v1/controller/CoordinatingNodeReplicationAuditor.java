@@ -44,7 +44,7 @@ public class CoordinatingNodeReplicationAuditor extends AbstractReplicationAudit
     private static final int pageSize = 100;
     private static final int pidsPerTaskSize = 10;
     private static final int taskPoolSize = 10;
-    private static final int maxPages = 1000;
+    private static final int maxPages = 50;
 
     private static final int auditPeriodDays = Settings.getConfiguration().getInt(
             "Replication.audit.cn.period.days", 90);
