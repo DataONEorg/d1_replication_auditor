@@ -123,7 +123,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
             } else { // not a CN replica, not the authMN replica - a MN replica.
                 boolean valid = false;
                 if (verify) {
-                    valid = auditMemberNodeReplica(sysMeta, replica, false);
+                    valid = auditMemberNodeReplica(sysMeta, replica);
                 }
                 if (valid || !verify) {
                     validReplicaCount++;
@@ -138,8 +138,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
         return;
     }
 
-    private boolean auditMemberNodeReplica(SystemMetadata sysMeta, Replica replica,
-            boolean authoritativeMN) {
+    private boolean auditMemberNodeReplica(SystemMetadata sysMeta, Replica replica) {
 
         MNode mn = auditDelegate.getMNode(replica.getReplicaMemberNode());
         if (mn == null) {
@@ -153,7 +152,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
         try {
             actual = auditDelegate.getChecksumFromMN(pid, sysMeta, mn);
         } catch (NotFound e) {
-            handleInvalidReplica(pid, replica, authoritativeMN);
+            handleInvalidReplica(pid, replica);
             String message = "Attempt to retrieve the checksum from source member node resulted in a D1 NotFound exception: "
                     + e.getMessage() + ".   Replica has been marked invalid.";
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
@@ -205,7 +204,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
-            handleInvalidReplica(pid, replica, authoritativeMN);
+            handleInvalidReplica(pid, replica);
             return false;
         }
         return true;
@@ -224,10 +223,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
     }
 
     private boolean auditAuthoritativeMNodeReplica(SystemMetadata sysMeta, Replica replica) {
-        boolean verified = auditMemberNodeReplica(sysMeta, replica, true);
-        if (!verified) {
-            //any further special processing for auth MN?
-        }
+        boolean verified = auditMemberNodeReplica(sysMeta, replica);
         return verified;
     }
 
@@ -247,16 +243,14 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
     }
 
     /**
-     * Only set replica status invalid if not the authoritative MN copy.
+     * Set replica status invalid even if the authoritative MN copy.
      * 
      * @param pid
      * @param replica
      * @param authoritativeMN
      */
-    private void handleInvalidReplica(Identifier pid, Replica replica, boolean authoritativeMN) {
-        if (authoritativeMN == false) {
+    private void handleInvalidReplica(Identifier pid, Replica replica) {
             auditDelegate.updateInvalidReplica(pid, replica);
-        }
     }
 
     private void sendToReplication(Identifier pid) {
