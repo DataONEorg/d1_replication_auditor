@@ -52,8 +52,6 @@ public class ScheduledReplicationAuditController {
 
     public void startup() {
         logger.info("starting scheduled replication auditing...");
-        startStaleRequestedAuditing();
-        startStaleQueuedAuditing();
         startMnReplicaAuditing();
         startCnReplicaAuditing();
         logger.info("scheduled replication auditing started.");
@@ -77,24 +75,6 @@ public class ScheduledReplicationAuditController {
             cnReplicaAuditScheduler.shutdown();
         }
         logger.info("scheduled replication auditing stopped.");
-    }
-
-    private void startStaleQueuedAuditing() {
-        if (staleQueuedReplicaAuditScheduler == null
-                || staleQueuedReplicaAuditScheduler.isShutdown()) {
-            staleQueuedReplicaAuditScheduler = Executors.newSingleThreadScheduledExecutor();
-            staleQueuedReplicaAuditScheduler.scheduleAtFixedRate(new QueuedReplicationAuditor(),
-                    0L, 1L, TimeUnit.HOURS);
-        }
-    }
-
-    private void startStaleRequestedAuditing() {
-        if (staleRequestedReplicaAuditScheduler == null
-                || staleRequestedReplicaAuditScheduler.isShutdown()) {
-            staleRequestedReplicaAuditScheduler = Executors.newSingleThreadScheduledExecutor();
-            staleRequestedReplicaAuditScheduler.scheduleAtFixedRate(
-                    new StaleReplicationRequestAuditor(), 0L, 1L, TimeUnit.HOURS);
-        }
     }
 
     private void startMnReplicaAuditing() {
