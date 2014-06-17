@@ -148,6 +148,9 @@ public abstract class AbstractReplicationAuditor implements Runnable {
                 handleFutures(previousFutures);
             }
         }
+        if (auditTaskBatch.size() > 0) {
+            submitTasks(auditTaskBatch, currentFutures, previousFutures);
+        }
         handleFutures(currentFutures);
     }
 
