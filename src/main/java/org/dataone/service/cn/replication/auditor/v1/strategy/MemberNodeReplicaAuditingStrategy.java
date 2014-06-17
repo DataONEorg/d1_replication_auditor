@@ -152,45 +152,50 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
         try {
             actual = auditDelegate.getChecksumFromMN(pid, sysMeta, mn);
         } catch (NotFound e) {
-            handleInvalidReplica(pid, replica);
+            log.error(e);
             String message = "Attempt to retrieve the checksum from source member node resulted in a D1 NotFound exception: "
                     + e.getMessage() + ".   Replica has been marked invalid.";
+
+            handleInvalidReplica(pid, replica);
+
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
             return false;
         } catch (ServiceFailure e) {
             log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+            updateReplicaVerified(pid, replica);
             String message = "Attempt to retrieve checksum from MN resulted in multiple ServiceFailure exceptions: "
-                    + e.getMessage()
-                    + ".  Not invalidating replica, will attempt to audit again.  "
-                    + "Only the current occurance of this error will remain in the log.";
+                    + e.getMessage() + ".  Not invalidating replica.";
             logAuditingFailure(replica, pid, message);
             return true;
         } catch (InvalidRequest e) {
             log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+            updateReplicaVerified(pid, replica);
             String message = "Attempt to retrieve checksum from MN resulted in multiple InvalidRequest exceptions: "
-                    + e.getMessage()
-                    + ".  Not invalidating replica, will attempt to audit again.  "
-                    + "Only the current occurance of this error will remain in the log.";
+                    + e.getMessage() + ".  Not invalidating replica.";
             logAuditingFailure(replica, pid, message);
             return true;
         } catch (InvalidToken e) {
             log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+            updateReplicaVerified(pid, replica);
             String message = "Attempt to retrieve checksum from MN resulted in multiple InvalidToken exceptions: "
-                    + e.getMessage()
-                    + ".  Not invalidating replica, will attempt to audit again.  "
-                    + "Only the current occurance of this error will remain in the log.";
+                    + e.getMessage() + ".  Not invalidating replica.";
             logAuditingFailure(replica, pid, message);
             return true;
         }
 
         if (actual == null) {
             String message = "Attempt to retrieve the checksum from source member node resulted "
-                    + "in a null checksum.  Not invalidating replica, will attempt to audit again.  "
-                    + "Only the current occurance of this error will remain in the log.";
-            logAuditingFailure(replica, pid, message);
-            return true;
+                    + "in a null checksum.  Replica has been marked invalid.";
+            log.error(message);
+
+            handleInvalidReplica(pid, replica);
+
+            AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
+                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
+            AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
+            return false;
         }
 
         boolean valid = ChecksumUtil.areChecksumsEqual(actual, expected);
@@ -201,10 +206,12 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
                     + replica.getReplicaMemberNode().getValue() + ".  Expected checksum is: "
                     + expected.getValue() + " actual was: " + actual.getValue();
             log.error(message);
+
+            handleInvalidReplica(pid, replica);
+
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
-            handleInvalidReplica(pid, replica);
             return false;
         }
         return true;
@@ -223,8 +230,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
     }
 
     private boolean auditAuthoritativeMNodeReplica(SystemMetadata sysMeta, Replica replica) {
-        boolean verified = auditMemberNodeReplica(sysMeta, replica);
-        return verified;
+        return auditMemberNodeReplica(sysMeta, replica);
     }
 
     private boolean shouldSendToReplication(boolean queueToReplication, SystemMetadata sysMeta,
@@ -250,7 +256,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
      * @param authoritativeMN
      */
     private void handleInvalidReplica(Identifier pid, Replica replica) {
-            auditDelegate.updateInvalidReplica(pid, replica);
+        auditDelegate.updateInvalidReplica(pid, replica);
     }
 
     private void sendToReplication(Identifier pid) {
