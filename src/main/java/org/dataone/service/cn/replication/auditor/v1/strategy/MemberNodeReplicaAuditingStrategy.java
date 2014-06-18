@@ -140,12 +140,23 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
 
     private boolean auditMemberNodeReplica(SystemMetadata sysMeta, Replica replica) {
 
+        Identifier pid = sysMeta.getIdentifier();
+
         MNode mn = auditDelegate.getMNode(replica.getReplicaMemberNode());
         if (mn == null) {
-            return true;
+            String message = "Cannot find Member Node: "
+                    + replica.getReplicaMemberNode().getValue()
+                    + " in CN node list.  Unable to verify replica.  Replica has been marked invalid.";
+            log.error(message);
+
+            handleInvalidReplica(pid, replica);
+
+            AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
+                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
+            AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
+            return false;
         }
 
-        Identifier pid = sysMeta.getIdentifier();
         Checksum expected = sysMeta.getChecksum();
         Checksum actual = null;
 
