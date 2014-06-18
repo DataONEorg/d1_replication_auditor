@@ -162,7 +162,14 @@ public class ReplicaAuditingDelegate {
     }
 
     protected boolean isCNodeReplica(Replica replica) {
-        return NodeType.CN.equals(hzNodes.get(replica.getReplicaMemberNode()).getType());
+        boolean isCNodeReplica = false;
+        if (replica != null && replica.getReplicaMemberNode() != null) {
+            Node node = hzNodes.get(replica.getReplicaMemberNode());
+            if (node != null && node.getType() != null) {
+                isCNodeReplica = NodeType.CN.equals(node.getType());
+            }
+        }
+        return isCNodeReplica;
     }
 
     protected Date calculateReplicaVerifiedDate() {
