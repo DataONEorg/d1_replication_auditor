@@ -28,9 +28,9 @@ import java.util.concurrent.Callable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dataone.client.D1Client;
-import org.dataone.client.MNode;
 import org.dataone.client.auth.CertificateManager;
+import org.dataone.client.v1.MNode;
+import org.dataone.client.v1.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.configuration.Settings;
 import org.dataone.service.exceptions.InvalidRequest;

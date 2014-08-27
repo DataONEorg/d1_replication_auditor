@@ -27,7 +27,8 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dataone.client.CNode;
+import org.dataone.client.v2.CNode;
+import org.dataone.client.v2.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
@@ -217,7 +218,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
             InvalidToken, ServiceFailure, NotAuthorized, NotImplemented {
         Checksum checksum = null;
         String algorithm = sysmeta.getChecksum().getAlgorithm();
-        InputStream is = cn.get(sysmeta.getIdentifier());
+        InputStream is = cn.get(null, sysmeta.getIdentifier());
         if (is != null) {
             try {
                 checksum = ChecksumUtil.checksum(is, algorithm);
@@ -233,9 +234,14 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
 
     private CNode getCNode(Node node) {
         if (!cnMap.containsKey(node.getIdentifier().getValue())) {
-            CNode cn = new CNode(node.getBaseURL());
-            cn.setNodeId(node.getIdentifier().getValue());
-            cnMap.put(node.getIdentifier(), cn);
+            CNode cn = null;
+            try {
+                cn = D1Client.getCN(node.getBaseURL());
+                cn.setNodeId(node.getIdentifier());
+                cnMap.put(node.getIdentifier(), cn);
+            } catch (ServiceFailure e) {
+                e.printStackTrace();
+            }
         }
         return cnMap.get(node.getIdentifier());
     }
