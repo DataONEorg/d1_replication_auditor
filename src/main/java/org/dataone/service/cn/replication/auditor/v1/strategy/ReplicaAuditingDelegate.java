@@ -6,14 +6,15 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dataone.client.MNode;
+import org.dataone.client.v1.MNode;
+import org.dataone.client.v1.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
-import org.dataone.service.cn.replication.v1.ReplicationFactory;
-import org.dataone.service.cn.replication.v1.ReplicationService;
+import org.dataone.service.cn.replication.ReplicationFactory;
+import org.dataone.service.cn.replication.ReplicationService;
 import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.InvalidRequest;
 import org.dataone.service.exceptions.InvalidToken;
@@ -88,7 +89,12 @@ public class ReplicaAuditingDelegate {
 
     protected MNode getMNode(NodeReference nodeRef) {
         if (!mnMap.containsKey(nodeRef)) {
-            MNode mn = replicationService.getMemberNode(nodeRef);
+            MNode mn = null;
+            try {
+                mn = D1Client.getMN(nodeRef);
+            } catch (ServiceFailure e1) {
+                e1.printStackTrace();
+            }
             if (mn != null) {
                 try {
                     mn.ping();
