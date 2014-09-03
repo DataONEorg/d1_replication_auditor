@@ -4,17 +4,15 @@
   <artifactId>d1_replication_auditor</artifactId>
   <name>d1_replication_auditor</name>
   <version>1.0.0</version>
-  
   	<properties>
   		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   		<d1_cn_common_version>1.2.0</d1_cn_common_version>
   		<d1_replication_version>1.2.0</d1_replication_version>
   		<hazelcast.version>2.4.1</hazelcast.version>
-  		<spring.version>3.1.1.RELEASE</spring.version>
+  		<spring.version>3.1.4.RELEASE</spring.version>
 	</properties>
   
 	<dependencies>
-        
 		<dependency>
 		    <groupId>org.dataone</groupId>
 		    <artifactId>d1_cn_common</artifactId>
