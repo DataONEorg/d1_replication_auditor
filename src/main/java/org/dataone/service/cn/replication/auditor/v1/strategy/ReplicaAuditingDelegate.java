@@ -4,8 +4,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.apache.log4j.Logger;
 import org.dataone.client.v1.MNode;
 import org.dataone.client.v1.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
@@ -41,7 +40,7 @@ import com.hazelcast.core.IMap;
  */
 public class ReplicaAuditingDelegate {
 
-    public static Log log = LogFactory.getLog(ReplicaAuditingDelegate.class);
+    public static Logger log = Logger.getLogger(ReplicaAuditingDelegate.class);
 
     private static final String cnRouterId = Settings.getConfiguration().getString(
             "cn.router.nodeId", "urn:node:CN");
