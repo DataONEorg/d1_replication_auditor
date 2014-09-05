@@ -25,8 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.apache.log4j.Logger;
 import org.dataone.client.CNode;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
@@ -62,7 +61,7 @@ import com.hazelcast.core.IMap;
  */
 public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
 
-    public static Log log = LogFactory.getLog(CoordinatingNodeReplicaAuditingStrategy.class);
+    public static Logger log = Logger.getLogger(CoordinatingNodeReplicaAuditingStrategy.class);
 
     private ReplicaAuditingDelegate auditDelegate = new ReplicaAuditingDelegate();
     private Map<NodeReference, CNode> cnMap = new HashMap<NodeReference, CNode>();

@@ -22,8 +22,7 @@ package org.dataone.service.cn.replication.auditor.v1.strategy;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.apache.log4j.Logger;
 import org.dataone.client.MNode;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
@@ -65,7 +64,7 @@ import com.hazelcast.core.IQueue;
  */
 public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
 
-    public static Log log = LogFactory.getLog(MemberNodeReplicaAuditingStrategy.class);
+    public static Logger log = Logger.getLogger(MemberNodeReplicaAuditingStrategy.class);
     private ReplicaAuditingDelegate auditDelegate = new ReplicaAuditingDelegate();
 
     private static final String replicationEventQueueName = Settings.getConfiguration().getString(
