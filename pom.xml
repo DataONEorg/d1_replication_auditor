@@ -3,7 +3,7 @@
   <groupId>org.dataone</groupId>
   <artifactId>d1_replication_auditor</artifactId>
   <name>d1_replication_auditor</name>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   	<properties>
   		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   		<d1_cn_common_version>1.2.0</d1_cn_common_version>
