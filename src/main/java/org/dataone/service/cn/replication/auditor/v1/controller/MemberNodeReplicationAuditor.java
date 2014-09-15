@@ -43,7 +43,7 @@ public class MemberNodeReplicationAuditor extends AbstractReplicationAuditor {
 
     private static final int pageSize = 100;
     private static final int pidsPerTaskSize = 10;
-    private static final int taskPoolSize = 10;
+    private static final int taskPoolSize = 5;
     private static final int maxPages = 50;
 
     private static final long auditPeriodDays = Settings.getConfiguration().getLong(

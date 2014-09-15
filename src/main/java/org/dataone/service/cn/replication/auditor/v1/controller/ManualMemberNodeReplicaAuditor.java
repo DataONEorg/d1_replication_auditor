@@ -31,8 +31,8 @@ import org.dataone.service.types.v1.Identifier;
 public class ManualMemberNodeReplicaAuditor extends AbstractReplicationAuditor {
 
     private static final int pageSize = 200;
-    private static final int pidsPerTaskSize = 20;
-    private static final int taskPoolSize = 10;
+    private static final int pidsPerTaskSize = 10;
+    private static final int taskPoolSize = 5;
     private static final int maxPages = 100000;
     private static final String MANUAL_AUDIT_LOCK_NAME = "manualMemberNodeReplicationAuditLock";
     private Date auditDate = null;
