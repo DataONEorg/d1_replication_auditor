@@ -74,8 +74,8 @@ public class ReplicaAuditingDelegate {
             log.error("Could not find system meta for pid: " + pid.getValue());
         }
         if (sysMeta == null) {
-            log.error("Cannot get system metadata from CN for pid: " + pid
-                    + ".  Could not replicas for pid: " + pid + "");
+            log.error("Cannot get system metadata from CN for pid: " + pid.getValue()
+                    + ".  Could not replicas for pid: " + pid.getValue() + "");
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), cnRouterId,
                     AuditEvent.REPLICA_AUDIT_FAILED,
                     "Unable to audit replica.  Could not retrieve system metadata for pid: "

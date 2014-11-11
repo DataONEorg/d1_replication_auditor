@@ -15,7 +15,8 @@ public class InvalidMemberNodeReplicationAuditor extends AbstractReplicationAudi
     private static final int pageSize = 100;
     private static final int pidsPerTaskSize = 10;
     private static final int taskPoolSize = 10;
-    private static final int maxPages = 50;
+    private static final int maxPages = 10;
+    private static final long executionWaitSeconds = 60;
 
     private static final int auditPeriodDays = Settings.getConfiguration().getInt(
             "Replication.audit.mn.invalid.period.days", 10);
@@ -69,5 +70,10 @@ public class InvalidMemberNodeReplicationAuditor extends AbstractReplicationAudi
     @Override
     protected boolean shouldRunAudit() {
         return ComponentActivationUtility.replicationMNAuditorIsActive();
+    }
+
+    @Override
+    protected long getFutureExecutionWaitTimeSeconds() {
+        return executionWaitSeconds;
     }
 }

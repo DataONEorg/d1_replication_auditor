@@ -44,7 +44,8 @@ public class CoordinatingNodeReplicationAuditor extends AbstractReplicationAudit
     private static final int pageSize = 100;
     private static final int pidsPerTaskSize = 5;
     private static final int taskPoolSize = 5;
-    private static final int maxPages = 50;
+    private static final int maxPages = 10;
+    private static final long executionWaitSeconds = 60;
 
     private static final long auditPeriodDays = Settings.getConfiguration().getLong(
             "Replication.audit.cn.period.days", 90);
@@ -94,5 +95,10 @@ public class CoordinatingNodeReplicationAuditor extends AbstractReplicationAudit
 
     protected int getPidsPerTaskSize() {
         return pidsPerTaskSize;
+    }
+
+    @Override
+    protected long getFutureExecutionWaitTimeSeconds() {
+        return executionWaitSeconds;
     }
 }

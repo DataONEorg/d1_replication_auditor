@@ -20,6 +20,7 @@
 package org.dataone.service.cn.replication.auditor.v1.strategy;
 
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +32,7 @@ import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
+import org.dataone.configuration.Settings;
 import org.dataone.service.exceptions.InvalidToken;
 import org.dataone.service.exceptions.NotAuthorized;
 import org.dataone.service.exceptions.NotFound;
@@ -63,7 +65,11 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
 
     public static Logger log = Logger.getLogger(CoordinatingNodeReplicaAuditingStrategy.class);
 
+    private static final BigInteger auditSizeLimit = Settings.getConfiguration().getBigInteger(
+            "dataone.cn.audit.size.limit", BigInteger.valueOf(10000000));
+
     private ReplicaAuditingDelegate auditDelegate = new ReplicaAuditingDelegate();
+
     private Map<NodeReference, CNode> cnMap = new HashMap<NodeReference, CNode>();
 
     private IMap<NodeReference, Node> hzNodes;
@@ -90,6 +96,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
         if (sysMeta == null) {
             return;
         }
+
         for (Replica replica : sysMeta.getReplicaList()) {
             if (auditDelegate.isCNodeReplica(replica)) {
                 auditCNodeReplicas(sysMeta, replica);
@@ -107,6 +114,16 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                     && auditDelegate.getCnRouterId().equals(node.getIdentifier().getValue()) == false) {
                 CNode cn = getCNode(node);
                 if (cn != null) {
+
+                    if (auditSizeLimit.compareTo(sysMeta.getSize()) < 0) {
+                        // file is larger than audit limit - dont audit, update audit date, log non audit.
+                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), cn.getNodeId(),
+                                AuditEvent.REPLICA_AUDIT_FAILED,
+                                "replica audit skipped, size of document exceeds audit limit");
+                        updateReplicaVerified(sysMeta.getIdentifier(), replica);
+                        continue;
+                    }
+
                     Checksum expected = sysMeta.getChecksum();
                     Checksum actual = null;
                     boolean thisValid = true;
