@@ -42,9 +42,10 @@ import org.dataone.service.types.v1.Identifier;
 public class MemberNodeReplicationAuditor extends AbstractReplicationAuditor {
 
     private static final int pageSize = 100;
-    private static final int pidsPerTaskSize = 10;
+    private static final int pidsPerTaskSize = 5;
     private static final int taskPoolSize = 5;
-    private static final int maxPages = 50;
+    private static final int maxPages = 10;
+    private static final long executionWaitSeconds = 60;
 
     private static final long auditPeriodDays = Settings.getConfiguration().getLong(
             "Replication.audit.mn.period.days", 90);
@@ -94,5 +95,9 @@ public class MemberNodeReplicationAuditor extends AbstractReplicationAuditor {
     @Override
     protected boolean shouldRunAudit() {
         return ComponentActivationUtility.replicationMNAuditorIsActive();
+    }
+
+    protected long getFutureExecutionWaitTimeSeconds() {
+        return executionWaitSeconds;
     }
 }
