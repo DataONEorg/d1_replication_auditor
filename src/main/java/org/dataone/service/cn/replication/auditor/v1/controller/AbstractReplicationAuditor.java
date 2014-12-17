@@ -80,6 +80,8 @@ public abstract class AbstractReplicationAuditor implements Runnable {
 
     protected abstract boolean shouldRunAudit();
 
+    protected abstract long getFutureExecutionWaitTimeSeconds();
+
     @Override
     public void run() {
         auditReplication();
@@ -201,7 +203,7 @@ public abstract class AbstractReplicationAuditor implements Runnable {
         boolean timedOut = false;
         while (!isDone) {
             try {
-                result = (String) future.get(10, TimeUnit.SECONDS);
+                result = (String) future.get(getFutureExecutionWaitTimeSeconds(), TimeUnit.SECONDS);
                 if (result != null) {
                     log.debug("Replica audit task completed with result: " + result);
                 }
@@ -214,7 +216,8 @@ public abstract class AbstractReplicationAuditor implements Runnable {
                 log.error("Replica audit task threw exception during execution. ", e);
             } catch (TimeoutException e) {
                 if (timedOut == false) {
-                    log.debug("Replica audit task timed out.  waiting another 10 seconds.");
+                    log.debug("Replica audit task timed out.  waiting another"
+                            + getFutureExecutionWaitTimeSeconds() + " seconds.");
                     timedOut = true;
                 } else {
                     log.error("Replica audit task timed out twice, cancelling.");

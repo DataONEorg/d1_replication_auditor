@@ -4,19 +4,15 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.log4j.Logger;
-import org.dataone.client.v1.MNode;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
-import org.dataone.service.exceptions.InvalidRequest;
-import org.dataone.service.exceptions.InvalidToken;
-import org.dataone.service.exceptions.NotFound;
-import org.dataone.service.exceptions.ServiceFailure;
+import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.types.v1.Checksum;
 import org.dataone.service.types.v1.Identifier;
 import org.dataone.service.types.v1.Replica;
-import org.dataone.service.types.v1.SystemMetadata;
 import org.dataone.service.types.v1.util.ChecksumUtil;
+import org.dataone.service.types.v2.SystemMetadata;
 
 /**
  * Strategy for auditing invalid member node replica objects.
@@ -76,24 +72,13 @@ public class InvalidMemberNodeReplicaAuditingStrategy implements ReplicaAuditStr
 
     private void auditInvalidMemberNodeReplica(SystemMetadata sysMeta, Replica replica) {
 
-        MNode mn = auditDelegate.getMNode(replica.getReplicaMemberNode());
-        if (mn == null) {
-            return;
-        }
-
         Identifier pid = sysMeta.getIdentifier();
         Checksum expected = sysMeta.getChecksum();
         Checksum actual = null;
 
         try {
-            actual = auditDelegate.getChecksumFromMN(pid, sysMeta, mn);
-        } catch (NotFound e) {
-            e.printStackTrace();
-        } catch (ServiceFailure e) {
-            e.printStackTrace();
-        } catch (InvalidRequest e) {
-            e.printStackTrace();
-        } catch (InvalidToken e) {
+            actual = auditDelegate.getChecksumFromMN(pid, sysMeta, replica.getReplicaMemberNode());
+        } catch (BaseException e) {
             e.printStackTrace();
         }
 

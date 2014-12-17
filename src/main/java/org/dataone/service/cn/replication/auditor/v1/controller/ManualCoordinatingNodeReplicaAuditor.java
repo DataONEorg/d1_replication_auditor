@@ -34,7 +34,9 @@ public class ManualCoordinatingNodeReplicaAuditor extends AbstractReplicationAud
     private static final int pidsPerTaskSize = 20;
     private static final int taskPoolSize = 10;
     private static final int maxPages = 100000;
+    private static final long executionWaitSeconds = 60;
     private static final String MANUAL_AUDIT_LOCK_NAME = "manualCoordinatingNodeReplicationAuditLock";
+
     private Date auditDate = null;
 
     public ManualCoordinatingNodeReplicaAuditor(Date auditDate) {
@@ -91,6 +93,11 @@ public class ManualCoordinatingNodeReplicaAuditor extends AbstractReplicationAud
 
     protected boolean shouldRunAudit() {
         return true;
+    }
+
+    @Override
+    protected long getFutureExecutionWaitTimeSeconds() {
+        return executionWaitSeconds;
     }
 
 }

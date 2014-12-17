@@ -19,27 +19,25 @@
  */
 package org.dataone.service.cn.replication.auditor.v1.strategy;
 
+import java.math.BigInteger;
 import java.util.Date;
 import java.util.List;
 
 import org.apache.log4j.Logger;
-import org.dataone.client.v1.MNode;
-import org.dataone.cn.hazelcast.HazelcastClientFactory;
+import org.dataone.cn.data.repository.ReplicationTask;
+import org.dataone.cn.data.repository.ReplicationTaskRepository;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
-import org.dataone.service.exceptions.InvalidRequest;
-import org.dataone.service.exceptions.InvalidToken;
+import org.dataone.service.cn.replication.ReplicationFactory;
+import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.NotFound;
-import org.dataone.service.exceptions.ServiceFailure;
 import org.dataone.service.types.v1.Checksum;
 import org.dataone.service.types.v1.Identifier;
 import org.dataone.service.types.v1.Replica;
-import org.dataone.service.types.v1.SystemMetadata;
 import org.dataone.service.types.v1.util.ChecksumUtil;
-
-import com.hazelcast.core.IQueue;
+import org.dataone.service.types.v2.SystemMetadata;
 
 /**
  * This type of audit verifies both that the replication policy is fufilled and
@@ -65,13 +63,13 @@ import com.hazelcast.core.IQueue;
 public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
 
     public static Logger log = Logger.getLogger(MemberNodeReplicaAuditingStrategy.class);
+
+    private static final BigInteger auditSizeLimit = Settings.getConfiguration().getBigInteger(
+            "dataone.mn.audit.size.limit", BigInteger.valueOf(1000000000));
+
     private ReplicaAuditingDelegate auditDelegate = new ReplicaAuditingDelegate();
-
-    private static final String replicationEventQueueName = Settings.getConfiguration().getString(
-            "dataone.hazelcast.replicationQueuedEvents");
-
-    private IQueue<Identifier> replicationEvents = HazelcastClientFactory.getProcessingClient()
-            .getQueue(replicationEventQueueName);
+    private ReplicationTaskRepository taskRepository = ReplicationFactory
+            .getReplicationTaskRepository();
 
     public MemberNodeReplicaAuditingStrategy() {
     }
@@ -137,30 +135,26 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
         return;
     }
 
+    // Return value indicates if replica is valid.
     private boolean auditMemberNodeReplica(SystemMetadata sysMeta, Replica replica) {
 
         Identifier pid = sysMeta.getIdentifier();
 
-        MNode mn = auditDelegate.getMNode(replica.getReplicaMemberNode());
-        if (mn == null) {
-            String message = "Cannot find Member Node: "
-                    + replica.getReplicaMemberNode().getValue()
-                    + " in CN node list.  Unable to verify replica.  Replica has been marked invalid.";
-            log.error(message);
-
-            handleInvalidReplica(pid, replica);
-
+        if (auditSizeLimit.compareTo(sysMeta.getSize()) < 0) {
+            // file is larger than audit limit - dont audit, update audit date, log non audit.
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
-                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
+                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                    "replica audit skipped, size of document exceeds audit limit");
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
-            return false;
+            updateReplicaVerified(pid, replica);
+            return true;
         }
 
         Checksum expected = sysMeta.getChecksum();
         Checksum actual = null;
 
         try {
-            actual = auditDelegate.getChecksumFromMN(pid, sysMeta, mn);
+            actual = auditDelegate.getChecksumFromMN(pid, sysMeta, replica.getReplicaMemberNode());
         } catch (NotFound e) {
             log.error(e);
             String message = "Attempt to retrieve the checksum from source member node resulted in a D1 NotFound exception: "
@@ -172,24 +166,10 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
             return false;
-        } catch (ServiceFailure e) {
-            log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
+        } catch (BaseException e) {
+            log.error("Unable to get checksum from mn: " + replica.getReplicaMemberNode() + ". ", e);
             updateReplicaVerified(pid, replica);
             String message = "Attempt to retrieve checksum from MN resulted in multiple ServiceFailure exceptions: "
-                    + e.getMessage() + ".  Not invalidating replica.";
-            logAuditingFailure(replica, pid, message);
-            return true;
-        } catch (InvalidRequest e) {
-            log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
-            updateReplicaVerified(pid, replica);
-            String message = "Attempt to retrieve checksum from MN resulted in multiple InvalidRequest exceptions: "
-                    + e.getMessage() + ".  Not invalidating replica.";
-            logAuditingFailure(replica, pid, message);
-            return true;
-        } catch (InvalidToken e) {
-            log.error("Unable to get checksum from mn: " + mn.getNodeId() + ". ", e);
-            updateReplicaVerified(pid, replica);
-            String message = "Attempt to retrieve checksum from MN resulted in multiple InvalidToken exceptions: "
                     + e.getMessage() + ".  Not invalidating replica.";
             logAuditingFailure(replica, pid, message);
             return true;
@@ -270,12 +250,20 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
     }
 
     private void sendToReplication(Identifier pid) {
-        try {
-            log.debug("Sending pid to replication event queue: " + pid.getValue());
-            replicationEvents.add(pid);
-        } catch (Exception e) {
-            log.error("Pid: " + pid + " not accepted by replicationManager createAndQueueTasks: ",
-                    e);
+        List<ReplicationTask> taskList = taskRepository.findByPid(pid.getValue());
+        if (taskList.size() == 1) {
+            ReplicationTask task = taskList.get(0);
+            task.markNew();
+            taskRepository.save(task);
+        } else if (taskList.size() == 0) {
+            log.warn("In Replication Manager, task that should exist 'in process' does not exist.  Creating new task for pid: "
+                    + pid.getValue());
+            taskRepository.save(new ReplicationTask(pid));
+        } else if (taskList.size() > 1) {
+            log.warn("In Replication Manager, more than one task found for pid: " + pid.getValue()
+                    + ". Deleting all and creating new task.");
+            taskRepository.delete(taskList);
+            taskRepository.save(new ReplicationTask(pid));
         }
     }
 }

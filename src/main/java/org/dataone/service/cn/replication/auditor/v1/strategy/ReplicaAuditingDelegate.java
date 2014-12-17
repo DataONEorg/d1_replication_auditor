@@ -6,21 +6,16 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.dataone.client.v1.MNode;
-import org.dataone.client.v1.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
+import org.dataone.service.cn.replication.ReplicationCommunication;
 import org.dataone.service.cn.replication.ReplicationFactory;
 import org.dataone.service.cn.replication.ReplicationService;
 import org.dataone.service.exceptions.BaseException;
-import org.dataone.service.exceptions.InvalidRequest;
-import org.dataone.service.exceptions.InvalidToken;
-import org.dataone.service.exceptions.NotAuthorized;
 import org.dataone.service.exceptions.NotFound;
-import org.dataone.service.exceptions.NotImplemented;
-import org.dataone.service.exceptions.ServiceFailure;
 import org.dataone.service.types.v1.Checksum;
 import org.dataone.service.types.v1.Identifier;
 import org.dataone.service.types.v1.Node;
@@ -28,7 +23,7 @@ import org.dataone.service.types.v1.NodeReference;
 import org.dataone.service.types.v1.NodeType;
 import org.dataone.service.types.v1.Replica;
 import org.dataone.service.types.v1.ReplicationStatus;
-import org.dataone.service.types.v1.SystemMetadata;
+import org.dataone.service.types.v2.SystemMetadata;
 
 import com.hazelcast.core.IMap;
 
@@ -75,8 +70,8 @@ public class ReplicaAuditingDelegate {
             log.error("Could not find system meta for pid: " + pid.getValue());
         }
         if (sysMeta == null) {
-            log.error("Cannot get system metadata from CN for pid: " + pid
-                    + ".  Could not replicas for pid: " + pid + "");
+            log.error("Cannot get system metadata from CN for pid: " + pid.getValue()
+                    + ".  Could not replicas for pid: " + pid.getValue() + "");
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), cnRouterId,
                     AuditEvent.REPLICA_AUDIT_FAILED,
                     "Unable to audit replica.  Could not retrieve system metadata for pid: "
@@ -84,29 +79,6 @@ public class ReplicaAuditingDelegate {
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
         }
         return sysMeta;
-    }
-
-    protected MNode getMNode(NodeReference nodeRef) {
-        if (!mnMap.containsKey(nodeRef)) {
-            MNode mn = null;
-            try {
-                mn = D1Client.getMN(nodeRef);
-            } catch (ServiceFailure e1) {
-                e1.printStackTrace();
-            }
-            if (mn != null) {
-                try {
-                    mn.ping();
-                    mnMap.put(nodeRef, mn);
-                } catch (BaseException e) {
-                    log.error("Unable to ping MN: " + nodeRef.getValue(), e);
-                }
-            } else {
-                log.error("Cannot get MN: " + nodeRef.getValue()
-                        + " unable to verify replica information.");
-            }
-        }
-        return mnMap.get(nodeRef);
     }
 
     protected void updateVerifiedReplica(Identifier pid, Replica replica) {
@@ -131,36 +103,20 @@ public class ReplicaAuditingDelegate {
         }
     }
 
-    protected Checksum getChecksumFromMN(Identifier pid, SystemMetadata sysMeta, MNode mn)
-            throws NotFound, ServiceFailure, InvalidRequest, InvalidToken {
+    protected Checksum getChecksumFromMN(Identifier pid, SystemMetadata sysMeta,
+            NodeReference nodeRef) throws BaseException {
+
+        ReplicationCommunication rc = ReplicationCommunication.getInstance(nodeRef);
+
         Checksum checksum = null;
         for (int i = 0; i < 5; i++) {
             try {
-                checksum = mn.getChecksum(pid, sysMeta.getChecksum().getAlgorithm());
+                checksum = rc.getChecksumFromMN(pid, nodeRef, sysMeta);
                 break;
-            } catch (ServiceFailure e) {
+            } catch (BaseException e) {
                 if (i >= 4) {
                     throw e;
                 }
-                // try again, no audit (skip)
-            } catch (InvalidRequest e) {
-                if (i >= 4) {
-                    throw e;
-                }
-                // try again, no audit (skip)
-            } catch (InvalidToken e) {
-                if (i >= 4) {
-                    throw e;
-                }
-                // try again, no audit (skip)
-            } catch (NotAuthorized e) {
-                // cannot audit, set to invalid
-                checksum = new Checksum();
-                break;
-            } catch (NotImplemented e) {
-                // cannot audit, set to invalid
-                checksum = new Checksum();
-                break;
             }
         }
         return checksum;
