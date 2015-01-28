@@ -28,10 +28,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.dataone.client.D1NodeFactory;
 import org.dataone.client.exception.ClientSideException;
 import org.dataone.client.rest.DefaultHttpMultipartRestClient;
 import org.dataone.client.v2.CNode;
-import org.dataone.client.v2.impl.D1NodeFactory;
 import org.dataone.client.v2.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
@@ -273,8 +273,9 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                     log.warn("Second ServiceFailure while getting a reference to the CN", e1);
                     try {
                         log.warn("...Building CNode without baseURL check.");
-                        cn = D1NodeFactory.buildCNode(new DefaultHttpMultipartRestClient(), URI
-                                .create(Settings.getConfiguration().getString("D1Client.CN_URL")));
+                        cn = D1NodeFactory.buildNode(CNode.class,
+                                new DefaultHttpMultipartRestClient(), URI.create(Settings
+                                        .getConfiguration().getString("D1Client.CN_URL")));
                     } catch (ClientSideException e2) {
                         log.error("ClientSideException trying to build a CNode.", e2);
                         cn = null;
