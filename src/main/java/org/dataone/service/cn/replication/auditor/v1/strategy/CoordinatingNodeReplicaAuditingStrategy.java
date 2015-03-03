@@ -30,7 +30,7 @@ import java.util.Map;
 import org.apache.log4j.Logger;
 import org.dataone.client.D1NodeFactory;
 import org.dataone.client.exception.ClientSideException;
-import org.dataone.client.rest.DefaultHttpMultipartRestClient;
+import org.dataone.client.rest.HttpMultipartRestClient;
 import org.dataone.client.v2.CNode;
 import org.dataone.client.v2.itk.D1Client;
 import org.dataone.cn.hazelcast.HazelcastClientFactory;
@@ -274,9 +274,9 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                     try {
                         log.warn("...Building CNode without baseURL check.");
                         cn = D1NodeFactory.buildNode(CNode.class,
-                                new DefaultHttpMultipartRestClient(), URI.create(Settings
+                                new HttpMultipartRestClient(), URI.create(Settings
                                         .getConfiguration().getString("D1Client.CN_URL")));
-                    } catch (ClientSideException e2) {
+                    } catch (Exception e2) {
                         log.error("ClientSideException trying to build a CNode.", e2);
                         cn = null;
                     }
