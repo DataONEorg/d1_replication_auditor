@@ -1,21 +1,19 @@
 package org.dataone.service.cn.replication.auditor.v1.strategy;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
-import org.dataone.client.v1.MNode;
-import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
+import org.dataone.service.cn.impl.v2.NodeRegistryService;
 import org.dataone.service.cn.replication.ReplicationCommunication;
 import org.dataone.service.cn.replication.ReplicationFactory;
 import org.dataone.service.cn.replication.ReplicationService;
 import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.NotFound;
+import org.dataone.service.exceptions.ServiceFailure;
 import org.dataone.service.types.v1.Checksum;
 import org.dataone.service.types.v1.Identifier;
 import org.dataone.service.types.v1.Node;
@@ -24,8 +22,6 @@ import org.dataone.service.types.v1.NodeType;
 import org.dataone.service.types.v1.Replica;
 import org.dataone.service.types.v1.ReplicationStatus;
 import org.dataone.service.types.v2.SystemMetadata;
-
-import com.hazelcast.core.IMap;
 
 /**
  * Replication Auditing Delegate class - encapulsates common replication auditing logic
@@ -41,12 +37,10 @@ public class ReplicaAuditingDelegate {
             "cn.router.nodeId", "urn:node:CN");
 
     private ReplicationService replicationService;
-    private IMap<NodeReference, Node> hzNodes;
-    private Map<NodeReference, MNode> mnMap = new HashMap<NodeReference, MNode>();
+    private NodeRegistryService nodeService = new NodeRegistryService();
 
     public ReplicaAuditingDelegate() {
         replicationService = ReplicationFactory.getReplicationService();
-        hzNodes = HazelcastClientFactory.getProcessingClient().getMap("hzNodes");
     }
 
     /**
@@ -125,7 +119,18 @@ public class ReplicaAuditingDelegate {
     protected boolean isCNodeReplica(Replica replica) {
         boolean isCNodeReplica = false;
         if (replica != null && replica.getReplicaMemberNode() != null) {
-            Node node = hzNodes.get(replica.getReplicaMemberNode());
+            Node node = null;
+            try {
+                node = nodeService.getNode(replica.getReplicaMemberNode());
+            } catch (ServiceFailure e) {
+                log.error("Unable to get node from node registry service for node ref: "
+                        + replica.getReplicaMemberNode().getValue(), e);
+                e.printStackTrace();
+            } catch (NotFound e) {
+                log.error("Unable to get node from node registry service for node ref: "
+                        + replica.getReplicaMemberNode().getValue(), e);
+                e.printStackTrace();
+            }
             if (node != null && node.getType() != null) {
                 isCNodeReplica = NodeType.CN.equals(node.getType());
             }
