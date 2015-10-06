@@ -29,15 +29,14 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.dataone.client.D1NodeFactory;
-import org.dataone.client.exception.ClientSideException;
 import org.dataone.client.rest.HttpMultipartRestClient;
 import org.dataone.client.v2.CNode;
 import org.dataone.client.v2.itk.D1Client;
-import org.dataone.cn.hazelcast.HazelcastClientFactory;
 import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
+import org.dataone.service.cn.impl.v2.NodeRegistryService;
 import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.InvalidToken;
 import org.dataone.service.exceptions.NotAuthorized;
@@ -53,12 +52,10 @@ import org.dataone.service.types.v1.Replica;
 import org.dataone.service.types.v1.SystemMetadata;
 import org.dataone.service.types.v1.util.ChecksumUtil;
 
-import com.hazelcast.core.IMap;
-
 /**
  * Strategy for auditing coordinating node replica copies of an object cataloged and
  * replicated by dataone.  Attempts to get the object bytes from each CN node found 
- * in the hzNodes map.  Then calculates the checksum of the object and compares to
+ * in the node registry service.  Then calculates the checksum of the object and compares to
  * the value found in system metadata.   If the checksum matches, the replica is considered
  * valid and the verified date of the replica record is updated.  However if the object
  * is not found or has a different checksum, the object needs to be replaced on that
@@ -78,10 +75,9 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
 
     private Map<NodeReference, CNode> cnMap = new HashMap<NodeReference, CNode>();
 
-    private IMap<NodeReference, Node> hzNodes;
+    private NodeRegistryService nodeService = new NodeRegistryService();
 
     public CoordinatingNodeReplicaAuditingStrategy() {
-        hzNodes = HazelcastClientFactory.getProcessingClient().getMap("hzNodes");
     }
 
     public void auditPids(List<Identifier> pids, Date auditDate) {
@@ -114,112 +110,123 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
 
     private void auditCNodeReplicas(SystemMetadata sysMeta, Replica replica) {
 
-        for (NodeReference nodeRef : hzNodes.keySet()) {
-            Node node = hzNodes.get(nodeRef);
-            if (NodeType.CN.equals(node.getType())
-                    && auditDelegate.getCnRouterId().equals(node.getIdentifier().getValue()) == false) {
-                CNode cn = getCNode(node);
-                if (cn != null) {
+        try {
+            for (Node node : nodeService.listNodes().getNodeList()) {
+                if (NodeType.CN.equals(node.getType())
+                        && auditDelegate.getCnRouterId().equals(node.getIdentifier().getValue()) == false) {
+                    CNode cn = getCNode(node);
+                    if (cn != null) {
 
-                    if (auditSizeLimit.compareTo(sysMeta.getSize()) < 0) {
-                        // file is larger than audit limit - dont audit, update audit date, log non audit.
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), cn.getNodeId()
-                                .getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
-                                "replica audit skipped, size of document exceeds audit limit");
-                        updateReplicaVerified(sysMeta.getIdentifier(), replica);
-                        continue;
-                    }
-
-                    Checksum expected = sysMeta.getChecksum();
-                    Checksum actual = null;
-                    boolean thisValid = true;
-                    try {
-                        actual = calculateCNChecksum(cn, sysMeta);
-                    } catch (NotFound e) {
-                        thisValid = false;
-                        String message = "Attempt to retrieve the pid: "
-                                + sysMeta.getIdentifier().getValue() + " from CN: "
-                                + nodeRef.getValue() + " resulted in a D1 NotFound exception: "
-                                + e.getMessage() + ".   Replica has NOT been marked invalid.";
-                        log.error(message, e);
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
-                                .getIdentifier().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
-                        continue;
-                    } catch (NotAuthorized e) {
-                        thisValid = false;
-                        String message = "Attempt to retrieve pid: "
-                                + sysMeta.getIdentifier().getValue() + " from CN: "
-                                + nodeRef.getValue()
-                                + " resulted in a D1 NotAuthorized exception: " + e.getMessage()
-                                + ".   Replica has NOT been marked invalid.";
-                        log.error(message, e);
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
-                                .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
-                                message);
-                        continue;
-                    } catch (NotImplemented e) {
-                        thisValid = false;
-                        String message = "Attempt to retrieve pid: "
-                                + sysMeta.getIdentifier().getValue() + " from CN: "
-                                + nodeRef.getValue()
-                                + " resulted in a D1 NotImplemented exception: " + e.getMessage()
-                                + ".   Replica has NOT been marked invalid.";
-                        log.error(message, e);
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
-                                .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
-                                message);
-                        continue;
-                    } catch (InvalidToken e) {
-                        thisValid = false;
-                        String message = "Attempt to retrieve pid: "
-                                + sysMeta.getIdentifier().getValue() + " from CN: "
-                                + nodeRef.getValue() + " resulted in a D1 InvalidToken exception: "
-                                + e.getMessage() + ".   Replica has NOT been marked invalid.";
-                        log.error(message, e);
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
-                                .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
-                                message);
-                        continue;
-                    } catch (ServiceFailure e) {
-                        thisValid = false;
-                        String message = "Attempt to retrieve pid: "
-                                + sysMeta.getIdentifier().getValue() + " from CN: "
-                                + nodeRef.getValue()
-                                + " resulted in a D1 ServiceFailure exception: " + e.getMessage()
-                                + ".   Replica has NOT been marked invalid.";
-                        log.error(message, e);
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
-                                .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
-                                message);
-                        continue;
-                    }
-                    if (actual != null && thisValid) {
-                        thisValid = ChecksumUtil.areChecksumsEqual(expected, actual);
-                    }
-
-                    if (thisValid) {
-                        AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
-                                new AuditLogEntry(sysMeta.getIdentifier().getValue(), nodeRef
-                                        .getValue(), null, null, null));
-                    } else {
-                        String message = "Checksum mismatch for pid: "
-                                + sysMeta.getIdentifier().getValue() + " against CN: "
-                                + nodeRef.getValue() + ".  Expected checksum is: "
-                                + expected.getValue() + ". ";
-
-                        if (actual != null) {
-                            message = message + " actual was: " + actual.getValue() + ". ";
+                        if (auditSizeLimit.compareTo(sysMeta.getSize()) < 0) {
+                            // file is larger than audit limit - dont audit, update audit date, log non audit.
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), cn
+                                    .getNodeId().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                                    "replica audit skipped, size of document exceeds audit limit");
+                            updateReplicaVerified(sysMeta.getIdentifier(), replica);
+                            continue;
                         }
-                        message = message + "Replica has NOT been marked invalid.";
-                        log.error(message);
-                        logReplicaAuditFailure(sysMeta.getIdentifier().getValue(),
-                                nodeRef.getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
-                        //TODO: Handle an invalid CN replica copy.  
-                        //      Request re-sync?  Set replica invalid?
 
+                        Checksum expected = sysMeta.getChecksum();
+                        Checksum actual = null;
+                        boolean thisValid = true;
+                        try {
+                            actual = calculateCNChecksum(cn, sysMeta);
+                        } catch (NotFound e) {
+                            thisValid = false;
+                            String message = "Attempt to retrieve the pid: "
+                                    + sysMeta.getIdentifier().getValue() + " from CN: "
+                                    + node.getIdentifier().getValue()
+                                    + " resulted in a D1 NotFound exception: " + e.getMessage()
+                                    + ".   Replica has NOT been marked invalid.";
+                            log.error(message, e);
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
+                                    .getIdentifier().getValue(), AuditEvent.REPLICA_NOT_FOUND,
+                                    message);
+                            continue;
+                        } catch (NotAuthorized e) {
+                            thisValid = false;
+                            String message = "Attempt to retrieve pid: "
+                                    + sysMeta.getIdentifier().getValue() + " from CN: "
+                                    + node.getIdentifier().getValue()
+                                    + " resulted in a D1 NotAuthorized exception: "
+                                    + e.getMessage() + ".   Replica has NOT been marked invalid.";
+                            log.error(message, e);
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
+                                    .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                                    message);
+                            continue;
+                        } catch (NotImplemented e) {
+                            thisValid = false;
+                            String message = "Attempt to retrieve pid: "
+                                    + sysMeta.getIdentifier().getValue() + " from CN: "
+                                    + node.getIdentifier().getValue()
+                                    + " resulted in a D1 NotImplemented exception: "
+                                    + e.getMessage() + ".   Replica has NOT been marked invalid.";
+                            log.error(message, e);
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
+                                    .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                                    message);
+                            continue;
+                        } catch (InvalidToken e) {
+                            thisValid = false;
+                            String message = "Attempt to retrieve pid: "
+                                    + sysMeta.getIdentifier().getValue() + " from CN: "
+                                    + node.getIdentifier().getValue()
+                                    + " resulted in a D1 InvalidToken exception: " + e.getMessage()
+                                    + ".   Replica has NOT been marked invalid.";
+                            log.error(message, e);
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
+                                    .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                                    message);
+                            continue;
+                        } catch (ServiceFailure e) {
+                            thisValid = false;
+                            String message = "Attempt to retrieve pid: "
+                                    + sysMeta.getIdentifier().getValue() + " from CN: "
+                                    + node.getIdentifier().getValue()
+                                    + " resulted in a D1 ServiceFailure exception: "
+                                    + e.getMessage() + ".   Replica has NOT been marked invalid.";
+                            log.error(message, e);
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
+                                    .getIdentifier().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                                    message);
+                            continue;
+                        }
+                        if (actual != null && thisValid) {
+                            thisValid = ChecksumUtil.areChecksumsEqual(expected, actual);
+                        }
+
+                        if (thisValid) {
+                            AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
+                                    new AuditLogEntry(sysMeta.getIdentifier().getValue(), node
+                                            .getIdentifier().getValue(), null, null, null));
+                        } else {
+                            String message = "Checksum mismatch for pid: "
+                                    + sysMeta.getIdentifier().getValue() + " against CN: "
+                                    + node.getIdentifier().getValue() + ".  Expected checksum is: "
+                                    + expected.getValue() + ". ";
+
+                            if (actual != null) {
+                                message = message + " actual was: " + actual.getValue() + ". ";
+                            }
+                            message = message + "Replica has NOT been marked invalid.";
+                            log.error(message);
+                            logReplicaAuditFailure(sysMeta.getIdentifier().getValue(), node
+                                    .getIdentifier().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM,
+                                    message);
+                            //TODO: Handle an invalid CN replica copy.  
+                            //      Request re-sync?  Set replica invalid?
+
+                        }
                     }
                 }
             }
+        } catch (NotImplemented e) {
+            log.error("Unable to get node list from node registry service", e);
+            e.printStackTrace();
+        } catch (ServiceFailure e) {
+            log.error("UNable to get node list from node registry service", e);
+            e.printStackTrace();
         }
         updateReplicaVerified(sysMeta.getIdentifier(), replica);
     }
@@ -273,9 +280,12 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
                     log.warn("Second ServiceFailure while getting a reference to the CN", e1);
                     try {
                         log.warn("...Building CNode without baseURL check.");
-                        cn = D1NodeFactory.buildNode(CNode.class,
-                                new HttpMultipartRestClient(), URI.create(Settings
-                                        .getConfiguration().getString("D1Client.CN_URL")));
+                        cn = D1NodeFactory
+                                .buildNode(
+                                        CNode.class,
+                                        new HttpMultipartRestClient(),
+                                        URI.create(Settings.getConfiguration().getString(
+                                                "D1Client.CN_URL")));
                     } catch (Exception e2) {
                         log.error("ClientSideException trying to build a CNode.", e2);
                         cn = null;
