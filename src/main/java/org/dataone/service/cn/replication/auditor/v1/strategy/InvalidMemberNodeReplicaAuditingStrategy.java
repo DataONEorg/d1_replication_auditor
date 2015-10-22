@@ -93,13 +93,17 @@ public class InvalidMemberNodeReplicaAuditingStrategy implements ReplicaAuditStr
             log.error("Checksum mismatch for pid: " + pid.getValue());
             log.error(" against MN: " + replica.getReplicaMemberNode().getValue() + ".");
             log.error("Expected checksum is: " + expected.getValue());
-            log.error(" actual was: " + actual.getValue());
+            String actualChecksum = null;
+            if (actual != null) {
+                actualChecksum = actual.getValue();
+            }
+            log.error(" actual was: " + actualChecksum);
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM,
                     "Checksum mismatch for pid: " + pid.getValue() + " against MN: "
                             + replica.getReplicaMemberNode().getValue()
                             + ".  Expected checksum is: " + expected.getValue() + " actual was: "
-                            + actual.getValue());
+                            + actualChecksum);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
             handleInvalidReplica(pid, replica);
         }
