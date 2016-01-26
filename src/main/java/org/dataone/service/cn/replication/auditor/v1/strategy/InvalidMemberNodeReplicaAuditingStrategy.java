@@ -53,10 +53,9 @@ public class InvalidMemberNodeReplicaAuditingStrategy implements ReplicaAuditStr
                 // CN replicas should not be appearing in this auditors data selection but
                 // may appear coincidentally having both a stale CN and MN replica.
                 continue;
-            } else if (auditDelegate.isAuthoritativeMNReplica(sysMeta, replica)) {
-                // not repairing authoritative member node replica objects at this time
-                // auditing is not 'invalidating' authoritative member node objects
-                continue;
+                // audit any MN replica even authMN copies
+                //            } else if (auditDelegate.isAuthoritativeMNReplica(sysMeta, replica)) {
+                //                continue;
             } else {
                 // not a CN replica, not the authMN replica - a invalid MN replica.
 
@@ -105,12 +104,12 @@ public class InvalidMemberNodeReplicaAuditingStrategy implements ReplicaAuditStr
                             + ".  Expected checksum is: " + expected.getValue() + " actual was: "
                             + actualChecksum);
             AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
-            handleInvalidReplica(pid, replica);
+            handleInvalidReplica(sysMeta, replica);
         }
     }
 
-    private void handleInvalidReplica(Identifier pid, Replica replica) {
-        auditDelegate.updateInvalidReplica(pid, replica);
+    private void handleInvalidReplica(SystemMetadata sysMeta, Replica replica) {
+        auditDelegate.updateInvalidReplica(sysMeta, replica);
     }
 
     private void updateReplicaToComplete(Identifier pid, Replica replica) {
