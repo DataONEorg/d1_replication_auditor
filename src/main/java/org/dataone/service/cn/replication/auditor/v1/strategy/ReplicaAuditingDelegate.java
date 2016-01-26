@@ -87,8 +87,21 @@ public class ReplicaAuditingDelegate {
                         null, null));
     }
 
-    protected void updateInvalidReplica(Identifier pid, Replica replica) {
-        replica.setReplicationStatus(ReplicationStatus.INVALIDATED);
+    protected void updateInvalidReplica(SystemMetadata sysMeta, Replica replica) {
+
+        boolean isAuthMNReplica = this.isAuthoritativeMNReplica(sysMeta, replica);
+        Identifier pid = sysMeta.getIdentifier();
+
+        if (isAuthMNReplica == true) {
+            AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
+                    .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_AUDIT_FAILED,
+                    "For pid: " + pid.getValue()
+                            + "  Authoritative Member Node replica is not valid."
+                            + "  Not marked INVALID.  Replica verified date updated.");
+            AuditLogClientFactory.getAuditLogClient().logAuditEvent(logEntry);
+        } else {
+            replica.setReplicationStatus(ReplicationStatus.INVALIDATED);
+        }
         replica.setReplicaVerified(this.calculateReplicaVerifiedDate());
         boolean success = replicationService.updateReplicationMetadata(pid, replica);
         if (!success) {
