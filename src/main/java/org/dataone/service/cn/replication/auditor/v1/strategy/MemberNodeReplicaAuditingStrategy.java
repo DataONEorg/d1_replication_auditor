@@ -160,7 +160,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
             String message = "Attempt to retrieve the checksum from source member node resulted in a D1 NotFound exception: "
                     + e.getMessage() + ".   Replica has been marked invalid.";
 
-            handleInvalidReplica(pid, replica);
+            handleInvalidReplica(sysMeta, replica);
 
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_NOT_FOUND, message);
@@ -180,7 +180,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
                     + "in a null checksum.  Replica has been marked invalid.";
             log.error(message);
 
-            handleInvalidReplica(pid, replica);
+            handleInvalidReplica(sysMeta, replica);
 
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
@@ -197,7 +197,7 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
                     + expected.getValue() + " actual was: " + actual.getValue();
             log.error(message);
 
-            handleInvalidReplica(pid, replica);
+            handleInvalidReplica(sysMeta, replica);
 
             AuditLogEntry logEntry = new AuditLogEntry(pid.getValue(), replica
                     .getReplicaMemberNode().getValue(), AuditEvent.REPLICA_BAD_CHECKSUM, message);
@@ -245,8 +245,8 @@ public class MemberNodeReplicaAuditingStrategy implements ReplicaAuditStrategy {
      * @param replica
      * @param authoritativeMN
      */
-    private void handleInvalidReplica(Identifier pid, Replica replica) {
-        auditDelegate.updateInvalidReplica(pid, replica);
+    private void handleInvalidReplica(SystemMetadata sysMeta, Replica replica) {
+        auditDelegate.updateInvalidReplica(sysMeta, replica);
     }
 
     private void sendToReplication(Identifier pid) {
