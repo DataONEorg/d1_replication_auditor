@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.io.IOUtils;
 
 import org.apache.log4j.Logger;
 import org.dataone.client.D1NodeFactory;
@@ -253,6 +254,8 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
             } catch (Exception e) {
                 log.error("Cannot calculate CN checksum for id: "
                         + sysmeta.getIdentifier().getValue(), e);
+            } finally {
+                 IOUtils.closeQuietly(is);
             }
         } else {
             log.error("Could not calculate checksum on CN, unable to get object bytes");
