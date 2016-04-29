@@ -7,10 +7,12 @@ import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
-import org.dataone.service.cn.impl.v2.NodeRegistryService;
+
 import org.dataone.service.cn.replication.ReplicationCommunication;
 import org.dataone.service.cn.replication.ReplicationFactory;
 import org.dataone.service.cn.replication.ReplicationService;
+import org.dataone.service.cn.v2.NodeRegistryService;
+import org.dataone.service.cn.v2.impl.NodeRegistryServiceImpl;
 import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.NotFound;
 import org.dataone.service.exceptions.ServiceFailure;
@@ -37,7 +39,7 @@ public class ReplicaAuditingDelegate {
             "cn.router.nodeId", "urn:node:CN");
 
     private ReplicationService replicationService;
-    private NodeRegistryService nodeService = new NodeRegistryService();
+    private NodeRegistryService nodeService = new NodeRegistryServiceImpl();
 
     public ReplicaAuditingDelegate() {
         replicationService = ReplicationFactory.getReplicationService();
@@ -134,7 +136,7 @@ public class ReplicaAuditingDelegate {
         if (replica != null && replica.getReplicaMemberNode() != null) {
             Node node = null;
             try {
-                node = nodeService.getNode(replica.getReplicaMemberNode());
+                node = nodeService.getNodeCapabilities(replica.getReplicaMemberNode());
             } catch (ServiceFailure e) {
                 log.error("Unable to get node from node registry service for node ref: "
                         + replica.getReplicaMemberNode().getValue(), e);

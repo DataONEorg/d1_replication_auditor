@@ -37,7 +37,8 @@ import org.dataone.cn.log.AuditEvent;
 import org.dataone.cn.log.AuditLogClientFactory;
 import org.dataone.cn.log.AuditLogEntry;
 import org.dataone.configuration.Settings;
-import org.dataone.service.cn.impl.v2.NodeRegistryService;
+import org.dataone.service.cn.v2.NodeRegistryService;
+import org.dataone.service.cn.v2.impl.NodeRegistryServiceImpl;
 import org.dataone.service.exceptions.BaseException;
 import org.dataone.service.exceptions.InvalidToken;
 import org.dataone.service.exceptions.NotAuthorized;
@@ -76,7 +77,7 @@ public class CoordinatingNodeReplicaAuditingStrategy implements ReplicaAuditStra
 
     private Map<NodeReference, CNode> cnMap = new HashMap<NodeReference, CNode>();
 
-    private NodeRegistryService nodeService = new NodeRegistryService();
+    private NodeRegistryService nodeService = new NodeRegistryServiceImpl();
 
     public CoordinatingNodeReplicaAuditingStrategy() {
     }
