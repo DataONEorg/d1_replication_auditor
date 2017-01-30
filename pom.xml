@@ -3,13 +3,13 @@
   <groupId>org.dataone</groupId>
   <artifactId>d1_replication_auditor</artifactId>
   <name>d1_replication_auditor</name>
-  <version>2.3.0</version>
+  <version>2.3.1</version>
   
   	<properties>
   		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <compiler.target.version>1.7</compiler.target.version>
   		<d1_cn_common.version>2.3.0</d1_cn_common.version>
-  		<d1_replication.version>2.3.0</d1_replication.version>
+  		<d1_replication.version>2.3.1</d1_replication.version>
   		<hazelcast.version>2.4.1</hazelcast.version>
   		<spring.version>3.1.1.RELEASE</spring.version>
 	</properties>
