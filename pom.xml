@@ -11,7 +11,7 @@
   		<d1_cn_common.version>2.3.0-SNAPSHOT</d1_cn_common.version>
   		<d1_replication.version>2.3.0-SNAPSHOT</d1_replication.version>
   		<hazelcast.version>2.4.1</hazelcast.version>
-  		<spring.version>3.1.1.RELEASE</spring.version>
+  		<spring.version>3.1.4.RELEASE</spring.version>
 	</properties>
   
 	<dependencies>
