@@ -274,7 +274,8 @@ public class MNAuditTask implements Serializable, Callable<String> {
                 Session session = null;
 
                 // get the target checksum
-                Checksum targetChecksum = targetMN.getChecksum(session, pid, "MD5");
+                Checksum targetChecksum = 
+                        targetMN.getChecksum(session, pid, sysmeta.getChecksum().getAlgorithm());
 
                 if (targetChecksum != sysmeta.getChecksum()) {
                     replicaList.get(replicaIndex).setReplicationStatus(
