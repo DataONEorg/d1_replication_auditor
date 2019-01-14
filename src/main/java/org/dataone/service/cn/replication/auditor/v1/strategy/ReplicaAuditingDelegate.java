@@ -82,7 +82,7 @@ public class ReplicaAuditingDelegate {
         replica.setReplicaVerified(this.calculateReplicaVerifiedDate());
         boolean success = replicationService.updateReplicationMetadata(pid, replica);
         if (!success) {
-            log.error("Cannot update replica verified date  for pid: " + pid + " on CN");
+            log.error("Cannot update replica verified date  for pid: " + pid.getValue() + " on CN");
         }
         AuditLogClientFactory.getAuditLogClient().removeReplicaAuditEvent(
                 new AuditLogEntry(pid.getValue(), replica.getReplicaMemberNode().getValue(), null,
@@ -107,7 +107,7 @@ public class ReplicaAuditingDelegate {
         replica.setReplicaVerified(this.calculateReplicaVerifiedDate());
         boolean success = replicationService.updateReplicationMetadata(pid, replica);
         if (!success) {
-            log.error("Cannot update replica status to INVALID for pid: " + pid + " on MN: "
+            log.error("Cannot update replica status to INVALID for pid: " + pid.getValue() + " on MN: "
                     + replica.getReplicaMemberNode().getValue());
         }
     }
